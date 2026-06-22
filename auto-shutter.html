@@ -154,14 +154,17 @@
   .hud-time{font-family:var(--mono);font-weight:600;font-size:16px;line-height:1.1;color:var(--signal);
     font-variant-numeric:tabular-nums;white-space:nowrap}
   .hud-time.stale{color:var(--muted)}
+  .bar-wrap{padding:11px 0;margin:-9px 0 -5px;touch-action:none;cursor:ew-resize}
   .bar{position:relative;height:7px;border-radius:6px;background:rgba(255,255,255,.14);overflow:visible}
   .bar .fill{position:absolute;inset:0 auto 0 0;width:0%;border-radius:6px;
     background:linear-gradient(90deg,var(--signal),var(--warn) 70%,var(--hot));transition:width .07s linear}
   .bar.over .fill{box-shadow:0 0 12px color-mix(in srgb,var(--hot) 70%,transparent)}
   .bar .tick{position:absolute;top:-4px;bottom:-4px;width:2px;left:30%;border-radius:2px;
     background:#fff;box-shadow:0 0 5px rgba(0,0,0,.8)}
-  .bar .tick::after{content:"";position:absolute;top:-5px;left:-3px;border-left:4px solid transparent;
-    border-right:4px solid transparent;border-top:5px solid #fff}
+  .bar .tick .grip{position:absolute;left:50%;top:-9px;transform:translateX(-50%);
+    width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid rgba(0,0,0,.25);
+    box-shadow:0 1px 5px rgba(0,0,0,.6);transition:transform .12s}
+  .bar-wrap:active .tick .grip{transform:translateX(-50%) scale(1.18)}
 
   /* ── cards ────────────────────────────── */
   .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:15px;margin-top:12px;
@@ -180,8 +183,30 @@
     background:linear-gradient(180deg,#52f0d4,var(--signal));z-index:0;
     transition:transform .26s cubic-bezier(.34,1.3,.5,1),width .26s;box-shadow:0 4px 14px -6px var(--signal)}
 
+  /* large mode toggle near the top */
+  .modebar{margin:4px 2px 12px}
+  .seg-lg{display:flex;width:100%;border-radius:14px}
+  .seg-lg button{flex:1;font-size:15.5px;letter-spacing:.04em;padding:14px 10px}
+  .mode-hint{font-size:12px;color:var(--muted);text-align:center;margin-top:9px}
+
+  /* collapsible blocks */
+  .accordion{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);margin-top:12px;backdrop-filter:blur(6px)}
+  .acc-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;
+    background:transparent;border:0;cursor:pointer;padding:16px 15px;color:var(--text);text-align:left}
+  .acc-title{display:flex;flex-direction:column;gap:3px;font-family:var(--display);font-weight:600;font-size:14px}
+  .acc-title em{font-style:normal;font-weight:400;font-size:11px;color:var(--muted);font-family:var(--sans)}
+  .chev{flex:0 0 auto;width:9px;height:9px;margin-right:3px;
+    border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);
+    transform:rotate(45deg);transition:transform .28s ease}
+  .accordion:not(.collapsed) .chev{transform:rotate(-135deg)}
+  .acc-body{max-height:1600px;overflow:hidden;transition:max-height .32s ease}
+  .accordion.collapsed .acc-body{max-height:0}
+  .acc-inner{padding:0 15px 16px}
+  .acc-head:focus-visible{outline:2px solid var(--signal);outline-offset:-2px;border-radius:var(--r)}
+
   /* select */
   .sel-wrap{position:relative;max-width:60%}
+  .sel-wrap.full{max-width:100%}
   select{appearance:none;width:100%;background:var(--surface-2);color:var(--text);border:1px solid var(--line);
     border-radius:10px;padding:10px 34px 10px 12px;font-size:13px;font-family:var(--sans);cursor:pointer;
     text-overflow:ellipsis}
@@ -269,12 +294,20 @@
 
   /* viewer */
   .viewer{position:fixed;inset:0;background:rgba(4,5,7,.93);backdrop-filter:blur(6px);display:none;z-index:50;
-    flex-direction:column;align-items:center;justify-content:center;padding:22px}
+    flex-direction:column;align-items:center;justify-content:center;padding:22px;touch-action:none}
   .viewer.open{display:flex}
-  .viewer img{max-width:100%;max-height:76vh;border-radius:12px;box-shadow:0 20px 60px -20px #000}
+  .viewer img{max-width:100%;max-height:76vh;border-radius:12px;box-shadow:0 20px 60px -20px #000;
+    -webkit-user-drag:none;user-select:none;touch-action:none}
   .viewer p{color:var(--muted);font-size:12px;margin:16px 0 0;text-align:center;line-height:1.6;max-width:300px}
   .viewer .close{position:absolute;top:calc(env(safe-area-inset-top) + 12px);right:18px;
-    width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.1);border:0;color:#fff;font-size:22px;cursor:pointer}
+    width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.1);border:0;color:#fff;font-size:22px;cursor:pointer;z-index:2}
+  .vnav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;
+    background:rgba(255,255,255,.12);border:0;color:#fff;font-size:26px;line-height:1;cursor:pointer;z-index:2;
+    display:flex;align-items:center;justify-content:center;transition:opacity .2s}
+  .vnav.prev{left:14px}
+  .vnav.next{right:14px}
+  .vnav:disabled{opacity:.2;pointer-events:none}
+  .vcount{margin-top:14px;font-family:var(--mono);font-size:12px;color:#cbd2da;letter-spacing:.08em}
 
   /* confirm modal */
   .modal{position:fixed;inset:0;background:rgba(4,5,7,.8);backdrop-filter:blur(6px);display:none;z-index:60;
@@ -311,6 +344,15 @@
   <div class="chip" id="chip"><span class="led"></span><span id="chipText">待機中</span></div>
 </header>
 
+<div class="modebar">
+  <div class="seg seg-lg" id="seg">
+    <span class="knob" id="knob"></span>
+    <button data-mode="capture" class="on">撮影</button>
+    <button data-mode="calibrate">調整</button>
+  </div>
+  <div class="mode-hint" id="modeHint">動きを検知したら写真を撮ります</div>
+</div>
+
 <div class="finder idle" id="finder">
   <video id="video" playsinline muted autoplay></video>
   <div class="crop" id="crop"><span class="ch tl"></span><span class="ch tr"></span><span class="ch bl"></span><span class="ch br"></span></div>
@@ -341,96 +383,10 @@
         <div class="hud-time" id="lastShot">—</div>
       </div>
     </div>
-    <div class="bar" id="bar"><div class="fill" id="fill"></div><div class="tick" id="tick"></div></div>
-  </div>
-</div>
-
-<div class="card">
-  <div class="row">
-    <div class="k">モード<em id="modeHint">動きを検知したら写真を撮ります</em></div>
-    <div class="seg" id="seg">
-      <span class="knob" id="knob"></span>
-      <button data-mode="capture" class="on">撮影</button>
-      <button data-mode="calibrate">調整</button>
+    <div class="bar-wrap" id="barWrap">
+      <div class="bar" id="bar"><div class="fill" id="fill"></div><div class="tick" id="tick"><span class="grip"></span></div></div>
     </div>
   </div>
-  <div class="row">
-    <div class="k">カメラ / レンズ<em>複数あるときに切り替えられます</em></div>
-    <div class="sel-wrap"><select id="camSelect"><option>開始すると一覧表示</option></select></div>
-  </div>
-</div>
-
-<div class="card">
-  <div class="fader">
-    <div class="head">
-      <div class="name">検知・撮影範囲<em id="cropHint">映像全体を使います</em></div>
-      <label class="switch"><input type="checkbox" id="cropToggle"><span class="track"></span></label>
-    </div>
-    <div class="subfader" id="cropRow" data-off="true">
-      <div class="chips" id="cropPresets">
-        <button class="chip-btn" data-w="0.96" data-h="0.405">16:9</button>
-        <button class="chip-btn" data-w="0.96" data-h="0.54">4:3</button>
-        <button class="chip-btn" data-w="0.96" data-h="0.72">1:1</button>
-        <button class="chip-btn" data-w="0.9" data-h="0.9">3:4</button>
-        <button class="chip-btn" data-w="0.72" data-h="0.96">9:16</button>
-      </div>
-      <div class="fader" style="margin-top:14px">
-        <div class="head"><div class="name">横幅</div><div class="v" id="cropWV">70%</div></div>
-        <input type="range" id="cropW" min="20" max="100" step="1" value="70" disabled>
-      </div>
-      <div class="fader" style="margin-top:14px">
-        <div class="head"><div class="name">縦幅</div><div class="v" id="cropHV">70%</div></div>
-        <input type="range" id="cropH" min="20" max="100" step="1" value="70" disabled>
-      </div>
-      <div class="fader" style="margin-top:14px">
-        <div class="head"><div class="name">左右の位置</div><div class="v" id="posXV">中央</div></div>
-        <input type="range" id="posX" min="0" max="100" step="1" value="50" disabled>
-      </div>
-      <div class="fader" style="margin-top:14px">
-        <div class="head"><div class="name">上下の位置</div><div class="v" id="posYV">中央</div></div>
-        <input type="range" id="posY" min="0" max="100" step="1" value="50" disabled>
-      </div>
-      <div class="cropSize" id="cropSize">撮影サイズ：開始すると表示</div>
-    </div>
-  </div>
-</div>
-
-<div class="card">
-  <div class="fader">
-    <div class="head"><div class="name">検知範囲<em>画面の何%が動いたら反応するか</em></div><div class="v" id="areaV">5.0%</div></div>
-    <input type="range" id="area" min="1" max="400" value="50">
-  </div>
-  <div class="fader">
-    <div class="head"><div class="name">ノイズ耐性<em>小さな明るさの揺らぎを無視する強さ</em></div><div class="v" id="pixV">25</div></div>
-    <input type="range" id="pix" min="5" max="80" value="25">
-  </div>
-  <div class="fader">
-    <div class="head"><div class="name">比較間隔<em>短い＝素早い動き / 長い＝ゆっくりした変化も拾う</em></div><div class="v" id="cmpV">0.08s</div></div>
-    <input type="range" id="cmp" min="80" max="3000" step="20" value="80">
-  </div>
-  <div class="fader">
-    <div class="head">
-      <div class="name">撮影タイミング<em id="delayHint">検知した瞬間に撮影します</em></div>
-      <label class="switch"><input type="checkbox" id="delayToggle"><span class="track"></span></label>
-    </div>
-    <div class="subfader" id="delayRow" data-off="true">
-      <div class="head"><div class="name">遅延量<em>検知してから撮るまでの待ち時間</em></div><div class="v" id="delayV">0.30s</div></div>
-      <input type="range" id="delay" min="1" max="100" step="1" value="30" disabled>
-    </div>
-  </div>
-  <div class="fader">
-    <div class="head"><div class="name">連写間隔<em>1回撮ってから次までの最短待ち時間</em></div><div class="v" id="coolV">0.8s</div></div>
-    <input type="range" id="cool" min="200" max="3000" step="100" value="800">
-  </div>
-
-  <div class="actions">
-    <button class="btn primary" id="startBtn">開始</button>
-    <button class="btn stop" id="stopBtn" disabled>停止</button>
-  </div>
-  <div class="actions">
-    <button class="btn save" id="saveBtn" disabled>写真に保存 <span class="n" id="saveN"></span></button>
-  </div>
-  <div class="notice" id="notice"></div>
 </div>
 
 <div class="g-head">
@@ -441,6 +397,91 @@
   <div class="empty">まだ写真はありません。監視を始めると、ここに自動撮影した写真が並びます。</div>
 </div>
 
+<div class="accordion collapsed" id="acc-detect">
+  <button class="acc-head" aria-expanded="false"><span class="acc-title">検知の感度・撮影設定<em>動きの拾い方を調整</em></span><span class="chev"></span></button>
+  <div class="acc-body"><div class="acc-inner">
+    <div class="fader">
+      <div class="head"><div class="name">検知範囲<em>何%動いたら反応するか（メーターの印を動かしても調整可）</em></div><div class="v" id="areaV">5.0%</div></div>
+      <input type="range" id="area" min="1" max="400" value="50">
+    </div>
+    <div class="fader">
+      <div class="head"><div class="name">ノイズ耐性<em>小さな明るさの揺らぎを無視する強さ</em></div><div class="v" id="pixV">25</div></div>
+      <input type="range" id="pix" min="5" max="80" value="25">
+    </div>
+    <div class="fader">
+      <div class="head"><div class="name">比較間隔<em>短い＝素早い動き / 長い＝ゆっくりした変化も拾う</em></div><div class="v" id="cmpV">0.08s</div></div>
+      <input type="range" id="cmp" min="80" max="3000" step="20" value="80">
+    </div>
+    <div class="fader">
+      <div class="head">
+        <div class="name">撮影タイミング<em id="delayHint">検知した瞬間に撮影します</em></div>
+        <label class="switch"><input type="checkbox" id="delayToggle"><span class="track"></span></label>
+      </div>
+      <div class="subfader" id="delayRow" data-off="true">
+        <div class="head"><div class="name">遅延量<em>検知してから撮るまでの待ち時間</em></div><div class="v" id="delayV">0.30s</div></div>
+        <input type="range" id="delay" min="1" max="100" step="1" value="30" disabled>
+      </div>
+    </div>
+    <div class="fader">
+      <div class="head"><div class="name">連写間隔<em>1回撮ってから次までの最短待ち時間</em></div><div class="v" id="coolV">0.8s</div></div>
+      <input type="range" id="cool" min="200" max="3000" step="100" value="800">
+    </div>
+    <div class="fader">
+      <div class="head"><div class="name">カメラ / レンズ<em>複数あるとき切り替え</em></div></div>
+      <div class="sel-wrap full" style="margin-top:10px"><select id="camSelect"><option>開始すると一覧表示</option></select></div>
+    </div>
+  </div></div>
+</div>
+
+<div class="accordion collapsed" id="acc-crop">
+  <button class="acc-head" aria-expanded="false"><span class="acc-title">検知・撮影範囲<em id="cropHint">映像全体を使います</em></span><span class="chev"></span></button>
+  <div class="acc-body"><div class="acc-inner">
+    <div class="fader" style="margin-top:0">
+      <div class="head">
+        <div class="name">範囲を限定<em>フレーム内だけを使う</em></div>
+        <label class="switch"><input type="checkbox" id="cropToggle"><span class="track"></span></label>
+      </div>
+      <div class="subfader" id="cropRow" data-off="true">
+        <div class="chips" id="cropPresets">
+          <button class="chip-btn" data-w="0.96" data-h="0.405">16:9</button>
+          <button class="chip-btn" data-w="0.96" data-h="0.54">4:3</button>
+          <button class="chip-btn" data-w="0.96" data-h="0.72">1:1</button>
+          <button class="chip-btn" data-w="0.9" data-h="0.9">3:4</button>
+          <button class="chip-btn" data-w="0.72" data-h="0.96">9:16</button>
+        </div>
+        <div class="fader" style="margin-top:14px">
+          <div class="head"><div class="name">横幅</div><div class="v" id="cropWV">70%</div></div>
+          <input type="range" id="cropW" min="20" max="100" step="1" value="70" disabled>
+        </div>
+        <div class="fader" style="margin-top:14px">
+          <div class="head"><div class="name">縦幅</div><div class="v" id="cropHV">70%</div></div>
+          <input type="range" id="cropH" min="20" max="100" step="1" value="70" disabled>
+        </div>
+        <div class="fader" style="margin-top:14px">
+          <div class="head"><div class="name">左右の位置</div><div class="v" id="posXV">中央</div></div>
+          <input type="range" id="posX" min="0" max="100" step="1" value="50" disabled>
+        </div>
+        <div class="fader" style="margin-top:14px">
+          <div class="head"><div class="name">上下の位置</div><div class="v" id="posYV">中央</div></div>
+          <input type="range" id="posY" min="0" max="100" step="1" value="50" disabled>
+        </div>
+        <div class="cropSize" id="cropSize">撮影サイズ：開始すると表示</div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<div class="card">
+  <div class="actions">
+    <button class="btn primary" id="startBtn">開始</button>
+    <button class="btn stop" id="stopBtn" disabled>停止</button>
+  </div>
+  <div class="actions">
+    <button class="btn save" id="saveBtn" disabled>写真に保存 <span class="n" id="saveN"></span></button>
+  </div>
+  <div class="notice" id="notice"></div>
+</div>
+
 <p class="foot">
   カメラは <code>https://</code> のページでのみ起動します（iPhoneの <code>file://</code> では不可）。GitHub Pages などに置いて開いてください。<br>
   iOSでは保存に承認が必要です。「写真に保存」を押すと共有シートが開くので、「画像を保存」を選ぶとまとめて入ります。
@@ -448,8 +489,11 @@
 
 <div class="viewer" id="viewer">
   <button class="close" id="viewerClose" aria-label="閉じる">&times;</button>
-  <img id="viewerImg" alt="撮影した写真">
-  <p>1枚だけ保存したいときは、この画像を長押し →「写真に追加」</p>
+  <button class="vnav prev" id="vPrev" aria-label="前の写真">&#8249;</button>
+  <img id="viewerImg" alt="撮影した写真" draggable="false">
+  <button class="vnav next" id="vNext" aria-label="次の写真">&#8250;</button>
+  <div class="vcount" id="viewerCount"></div>
+  <p>左右にスワイプ／矢印で前後の写真を表示。1枚だけ保存はこの画像を長押し →「写真に追加」</p>
 </div>
 
 <div class="modal" id="confirm" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
@@ -497,11 +541,14 @@ let posX=0.5, posY=0.5;            // window position: 0=flush left/top, 0.5=cen
 const SCALE_MAX=0.40;              // meter spans 0..40%, matching the area slider's max
 
 /* ── faders ──────────────────────────── */
-$('area').addEventListener('input',e=>{
-  areaThresh=(+e.target.value)/1000;
-  $('areaV').textContent=(areaThresh*100).toFixed(1)+'%';
+function setAreaThresh(at){
+  at=Math.max(0.001, Math.min(0.4, at));           // matches the slider's 1..400 range
+  areaThresh=at;
+  $('area').value=Math.round(at*1000);
+  $('areaV').textContent=(at*100).toFixed(1)+'%';
   positionTick();
-});
+}
+$('area').addEventListener('input',e=>{ setAreaThresh((+e.target.value)/1000); });
 $('pix').addEventListener('input',e=>{ pixThresh=+e.target.value; $('pixV').textContent=pixThresh; });
 $('cmp').addEventListener('input',e=>{ compareMs=+e.target.value; $('cmpV').textContent=(compareMs/1000).toFixed(2)+'s'; });
 $('cool').addEventListener('input',e=>{ coolMs=+e.target.value; $('coolV').textContent=(coolMs/1000).toFixed(1)+'s'; });
@@ -514,6 +561,22 @@ $('delayToggle').addEventListener('change',e=>{
 });
 function positionTick(){ tick.style.left=Math.min(100, areaThresh/SCALE_MAX*100).toFixed(1)+'%'; }
 positionTick();
+
+/* drag the MOTION threshold marker directly — linked to 検知範囲 */
+const barWrap=$('barWrap');
+let draggingTick=false;
+function thresholdFromX(clientX){
+  const r=bar.getBoundingClientRect();
+  const frac=Math.max(0, Math.min(1, (clientX-r.left)/r.width));
+  setAreaThresh(frac*SCALE_MAX);
+}
+barWrap.addEventListener('pointerdown',e=>{
+  draggingTick=true; barWrap.setPointerCapture(e.pointerId);
+  thresholdFromX(e.clientX); e.preventDefault();
+});
+barWrap.addEventListener('pointermove',e=>{ if(draggingTick) thresholdFromX(e.clientX); });
+barWrap.addEventListener('pointerup',()=>{ draggingTick=false; });
+barWrap.addEventListener('pointercancel',()=>{ draggingTick=false; });
 
 /* ── crop / detection-capture window ─── */
 const cropEl=$('crop');
@@ -599,6 +662,13 @@ segBtns.forEach(b=>b.addEventListener('click',()=>{
 }));
 window.addEventListener('load',layoutKnob);
 window.addEventListener('resize',layoutKnob);
+
+/* ── collapsible blocks ──────────────── */
+document.querySelectorAll('.acc-head').forEach(h=>h.addEventListener('click',()=>{
+  const acc=h.closest('.accordion');
+  acc.classList.toggle('collapsed');
+  h.setAttribute('aria-expanded', String(!acc.classList.contains('collapsed')));
+}));
 
 /* ── notice helper ───────────────────── */
 let noticeTimer=null;
@@ -794,7 +864,7 @@ function addThumb(i){
   const empty=strip.querySelector('.empty'); if(empty) empty.remove();
   const t=document.createElement('div'); t.className='thumb';
   const img=document.createElement('img'); img.src=shots[i].url; img.alt='撮影した写真';
-  img.addEventListener('click',()=>{ if(shots[i]) openViewer(shots[i].url); });
+  img.addEventListener('click',()=>{ const s=shots[i]; if(!s) return; openViewerAt(liveShots().indexOf(s)); });
   const x=document.createElement('button'); x.className='x'; x.textContent='×'; x.setAttribute('aria-label','削除');
   x.addEventListener('click',ev=>{ ev.stopPropagation(); removeShot(i,t); });
   const idx=document.createElement('span'); idx.className='idx'; idx.textContent=String(liveShots().length+1).padStart(2,'0');
@@ -830,11 +900,47 @@ $('confirmOk').addEventListener('click',()=>{ doClearAll(); closeConfirm(); });
 $('confirmCancel').addEventListener('click',closeConfirm);
 confirmModal.addEventListener('click',e=>{ if(e.target===confirmModal) closeConfirm(); });
 
-/* ── viewer ──────────────────────────── */
-function openViewer(url){ $('viewerImg').src=url; $('viewer').classList.add('open'); }
-$('viewerClose').addEventListener('click',()=>$('viewer').classList.remove('open'));
-$('viewer').addEventListener('click',e=>{ if(e.target.id==='viewer') $('viewer').classList.remove('open'); });
-window.addEventListener('keydown',e=>{ if(e.key==='Escape'){ $('viewer').classList.remove('open'); closeConfirm(); } });
+/* ── viewer (with swipe / arrow navigation) ── */
+const viewerEl=$('viewer'), viewerImg=$('viewerImg');
+let viewerList=[], viewerIdx=0;
+function renderViewer(){
+  if(!viewerList.length){ viewerEl.classList.remove('open'); return; }
+  viewerIdx=Math.max(0, Math.min(viewerIdx, viewerList.length-1));
+  viewerImg.src=viewerList[viewerIdx];
+  $('viewerCount').textContent=`${viewerIdx+1} / ${viewerList.length}`;
+  $('vPrev').disabled = viewerIdx===0;
+  $('vNext').disabled = viewerIdx===viewerList.length-1;
+}
+function openViewerAt(pos){
+  viewerList=liveShots().map(s=>s.url);
+  if(!viewerList.length) return;
+  viewerIdx=pos; renderViewer(); viewerEl.classList.add('open');
+}
+function viewerPrev(){ if(viewerIdx>0){ viewerIdx--; renderViewer(); } }
+function viewerNext(){ if(viewerIdx<viewerList.length-1){ viewerIdx++; renderViewer(); } }
+function closeViewer(){ viewerEl.classList.remove('open'); }
+
+$('viewerClose').addEventListener('click',closeViewer);
+$('vPrev').addEventListener('click',viewerPrev);
+$('vNext').addEventListener('click',viewerNext);
+
+// swipe + tap-to-close (without closing on a swipe)
+let vx=null, vy=null, vMoved=false;
+viewerEl.addEventListener('pointerdown',e=>{ vx=e.clientX; vy=e.clientY; vMoved=false; });
+viewerEl.addEventListener('pointermove',e=>{ if(vx!=null && Math.abs(e.clientX-vx)>8) vMoved=true; });
+viewerEl.addEventListener('pointerup',e=>{
+  if(vx==null) return;
+  const dx=e.clientX-vx, dy=e.clientY-vy; const sx=vx; vx=null;
+  if(Math.abs(dx)>40 && Math.abs(dx)>Math.abs(dy)){ dx<0 ? viewerNext() : viewerPrev(); return; }
+  if(!vMoved && e.target===viewerEl) closeViewer();   // tap on backdrop closes
+});
+
+window.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){ closeViewer(); closeConfirm(); }
+  if(!viewerEl.classList.contains('open')) return;
+  if(e.key==='ArrowLeft') viewerPrev();
+  if(e.key==='ArrowRight') viewerNext();
+});
 
 /* ── save (Web Share, batched) ───────── */
 saveBtn.addEventListener('click',async()=>{
