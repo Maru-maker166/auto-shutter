@@ -348,8 +348,8 @@
     <input type="range" id="pix" min="5" max="80" value="25">
   </div>
   <div class="fader">
-    <div class="head"><div class="name">比較間隔<em>短い＝素早い動き / 長い＝ゆっくりした変化も拾う</em></div><div class="v" id="cmpV">0.10s</div></div>
-    <input type="range" id="cmp" min="100" max="3000" step="50" value="100">
+    <div class="head"><div class="name">比較間隔<em>短い＝素早い動き / 長い＝ゆっくりした変化も拾う</em></div><div class="v" id="cmpV">0.08s</div></div>
+    <input type="range" id="cmp" min="80" max="3000" step="20" value="80">
   </div>
   <div class="fader">
     <div class="head">
@@ -430,7 +430,7 @@ const dCtx=dCanvas.getContext('2d',{willReadFrequently:true});
 
 /* tunables */
 let areaThresh=0.05, pixThresh=25, coolMs=800;
-let compareMs=100;                 // how far apart compared frames are (snappy vs slow-change)
+let compareMs=80;                  // how far apart compared frames are (snappy vs slow-change); 80ms matches the original feel
 let delayOn=false, delayMs=300;    // capture instantly, or wait a moment after detection
 let pendingShot=false;             // a delayed capture is already queued
 let delayTimer=null;               // id of the pending delayed-capture timer (so we can cancel it)
@@ -509,7 +509,9 @@ async function start(deviceId){
   stopStream();                     // release current stream/loop only (keep UI until we know the result)
 
   // request a high-resolution stream; ideal is best-effort and never fails the call
-  const hi = { width:{ideal:3840}, height:{ideal:2160} };
+  // 1080p keeps photos sharp while keeping detection steady; 4K made AE/AF wobble and frame-drops
+  // skew the motion meter. Raise this if you specifically want more megapixels.
+  const hi = { width:{ideal:1920}, height:{ideal:1080} };
   const constraints = deviceId
     ? { video:{ deviceId:{exact:deviceId}, ...hi }, audio:false }
     : { video:{ facingMode:{ideal:'environment'}, ...hi }, audio:false };
