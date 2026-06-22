@@ -112,6 +112,8 @@
     padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.16);opacity:0;transition:opacity .3s}
   .finder.live .rec{opacity:1}
   .rec .d{width:8px;height:8px;border-radius:50%;background:var(--signal);box-shadow:0 0 8px var(--signal)}
+  .rec .resTag{color:rgba(255,255,255,.62);letter-spacing:.06em;padding-left:7px;margin-left:5px;border-left:1px solid rgba(255,255,255,.22)}
+  .rec .resTag:empty{display:none}
   .finder.modeCal .rec .d{background:var(--warn);box-shadow:0 0 8px var(--warn)}
 
   /* trigger flash + detect pulse */
@@ -190,6 +192,22 @@
   input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:50%;background:#fff;
     box-shadow:0 2px 8px rgba(0,0,0,.5)}
   input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 4px rgba(52,227,196,.4)}
+  input[type=range]:disabled{cursor:default}
+
+  /* toggle switch */
+  .switch{position:relative;display:inline-block;width:48px;height:28px;flex:0 0 auto;cursor:pointer}
+  .switch input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+  .switch .track{position:absolute;inset:0;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);
+    transition:background .22s,border-color .22s}
+  .switch .track::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .24s cubic-bezier(.34,1.3,.5,1)}
+  .switch input:checked + .track{background:linear-gradient(180deg,#52f0d4,var(--signal));border-color:transparent}
+  .switch input:checked + .track::after{transform:translateX(20px)}
+  .switch input:focus-visible + .track{outline:2px solid var(--signal);outline-offset:2px}
+
+  /* nested sub-fader (delay amount) */
+  .subfader{margin-top:14px;padding-left:13px;border-left:2px solid var(--line);transition:opacity .2s}
+  .subfader[data-off="true"]{opacity:.4}
 
   /* buttons */
   .actions{display:flex;gap:10px;margin-top:16px}
@@ -237,6 +255,20 @@
   .viewer .close{position:absolute;top:calc(env(safe-area-inset-top) + 12px);right:18px;
     width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.1);border:0;color:#fff;font-size:22px;cursor:pointer}
 
+  /* confirm modal */
+  .modal{position:fixed;inset:0;background:rgba(4,5,7,.8);backdrop-filter:blur(6px);display:none;z-index:60;
+    align-items:center;justify-content:center;padding:24px}
+  .modal.open{display:flex}
+  .modal-card{background:var(--solid);border:1px solid var(--line-2);border-radius:18px;padding:22px;
+    max-width:340px;width:100%;box-shadow:0 30px 70px -20px #000;animation:rise .22s ease-out}
+  @keyframes rise{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+  .modal-title{font-family:var(--display);font-weight:600;font-size:17px;margin-bottom:9px}
+  .modal-body{font-size:13.5px;color:var(--muted);line-height:1.65;margin-bottom:20px}
+  .modal-body b{color:var(--text);font-family:var(--mono)}
+  .modal-actions{display:flex;gap:10px}
+  .modal-actions .btn{flex:1;margin:0}
+  .btn.danger{background:var(--hot);color:#2a0410;border-color:transparent;box-shadow:0 8px 22px -10px var(--hot)}
+
   .foot{font-size:11.5px;color:var(--faint);line-height:1.7;margin:16px 4px 0}
   .foot code{font-family:var(--mono);color:var(--muted)}
 
@@ -262,7 +294,7 @@
   <video id="video" playsinline muted autoplay></video>
   <span class="bracket tl"></span><span class="bracket tr"></span>
   <span class="bracket bl"></span><span class="bracket br"></span>
-  <div class="rec"><span class="d"></span><span id="recText">監視中</span></div>
+  <div class="rec"><span class="d"></span><span id="recText">監視中</span><span class="resTag" id="resTag"></span></div>
   <div class="flash" id="flash"></div>
   <div class="detect" id="detect"><span class="d"></span>検知</div>
 
@@ -316,6 +348,20 @@
     <input type="range" id="pix" min="5" max="80" value="25">
   </div>
   <div class="fader">
+    <div class="head"><div class="name">比較間隔<em>短い＝素早い動き / 長い＝ゆっくりした変化も拾う</em></div><div class="v" id="cmpV">0.10s</div></div>
+    <input type="range" id="cmp" min="100" max="3000" step="50" value="100">
+  </div>
+  <div class="fader">
+    <div class="head">
+      <div class="name">撮影タイミング<em id="delayHint">検知した瞬間に撮影します</em></div>
+      <label class="switch"><input type="checkbox" id="delayToggle"><span class="track"></span></label>
+    </div>
+    <div class="subfader" id="delayRow" data-off="true">
+      <div class="head"><div class="name">遅延量<em>検知してから撮るまでの待ち時間</em></div><div class="v" id="delayV">0.30s</div></div>
+      <input type="range" id="delay" min="1" max="100" step="1" value="30" disabled>
+    </div>
+  </div>
+  <div class="fader">
     <div class="head"><div class="name">連写間隔<em>1回撮ってから次までの最短待ち時間</em></div><div class="v" id="coolV">0.8s</div></div>
     <input type="range" id="cool" min="200" max="3000" step="100" value="800">
   </div>
@@ -349,6 +395,17 @@
   <p>1枚だけ保存したいときは、この画像を長押し →「写真に追加」</p>
 </div>
 
+<div class="modal" id="confirm" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+  <div class="modal-card">
+    <div class="modal-title" id="confirmTitle">すべて削除しますか？</div>
+    <div class="modal-body">撮影した写真 <b id="confirmN">0</b> 枚をすべて消去します。この操作は元に戻せません。</div>
+    <div class="modal-actions">
+      <button class="btn" id="confirmCancel">キャンセル</button>
+      <button class="btn danger" id="confirmOk">削除する</button>
+    </div>
+  </div>
+</div>
+
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -367,12 +424,17 @@ let prev=null, lastTrigger=0, rafId=null, lastProc=0;
 let shots=[];                       // {blob, url} | null  (null = removed; index kept stable)
 
 /* detection runs on a tiny offscreen canvas */
-const SW=64, SH=48, PROC_MS=80;
+const SW=64, SH=48;
 const dCanvas=document.createElement('canvas'); dCanvas.width=SW; dCanvas.height=SH;
 const dCtx=dCanvas.getContext('2d',{willReadFrequently:true});
 
 /* tunables */
 let areaThresh=0.05, pixThresh=25, coolMs=800;
+let compareMs=100;                 // how far apart compared frames are (snappy vs slow-change)
+let delayOn=false, delayMs=300;    // capture instantly, or wait a moment after detection
+let pendingShot=false;             // a delayed capture is already queued
+let delayTimer=null;               // id of the pending delayed-capture timer (so we can cancel it)
+let captureGen=0;                  // session token: invalidates in-flight captures on stop/switch/clear
 const SCALE_MAX=0.40;              // meter spans 0..40%, matching the area slider's max
 
 /* ── faders ──────────────────────────── */
@@ -382,7 +444,15 @@ $('area').addEventListener('input',e=>{
   positionTick();
 });
 $('pix').addEventListener('input',e=>{ pixThresh=+e.target.value; $('pixV').textContent=pixThresh; });
+$('cmp').addEventListener('input',e=>{ compareMs=+e.target.value; $('cmpV').textContent=(compareMs/1000).toFixed(2)+'s'; });
 $('cool').addEventListener('input',e=>{ coolMs=+e.target.value; $('coolV').textContent=(coolMs/1000).toFixed(1)+'s'; });
+$('delay').addEventListener('input',e=>{ delayMs=(+e.target.value)*10; $('delayV').textContent=(delayMs/1000).toFixed(2)+'s'; });
+$('delayToggle').addEventListener('change',e=>{
+  delayOn=e.target.checked;
+  $('delay').disabled=!delayOn;
+  $('delayRow').dataset.off = delayOn ? 'false' : 'true';
+  $('delayHint').textContent = delayOn ? '検知してから少し待って撮影します' : '検知した瞬間に撮影します';
+});
 function positionTick(){ tick.style.left=Math.min(100, areaThresh/SCALE_MAX*100).toFixed(1)+'%'; }
 positionTick();
 
@@ -438,9 +508,11 @@ async function start(deviceId){
   const wasRunning=running;
   stopStream();                     // release current stream/loop only (keep UI until we know the result)
 
+  // request a high-resolution stream; ideal is best-effort and never fails the call
+  const hi = { width:{ideal:3840}, height:{ideal:2160} };
   const constraints = deviceId
-    ? { video:{ deviceId:{exact:deviceId} }, audio:false }
-    : { video:{ facingMode:{ideal:'environment'} }, audio:false };
+    ? { video:{ deviceId:{exact:deviceId}, ...hi }, audio:false }
+    : { video:{ facingMode:{ideal:'environment'}, ...hi }, audio:false };
 
   let newStream;
   try{
@@ -471,6 +543,9 @@ async function start(deviceId){
   await listCameras(currentDeviceId);
   if(myGen!==startGen){ stopStream(); return; }
 
+  const st=stream.getVideoTracks()[0]?.getSettings()||{};
+  $('resTag').textContent = (st.width&&st.height) ? `${st.width}×${st.height}` : '';
+
   running=true; prev=null; lastProc=0;
   finder.classList.remove('idle'); finder.classList.add('live');
   chip.classList.remove('fire'); chip.classList.add('armed'); chipText.textContent='監視中';
@@ -482,17 +557,22 @@ async function start(deviceId){
 function stopStream(){
   running=false;
   if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
+  if(delayTimer){ clearTimeout(delayTimer); delayTimer=null; }   // kill any queued delayed shot
+  pendingShot=false;
+  captureGen++;                                                  // invalidate in-flight captures
   if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
 }
 
 /* full stop: media + UI back to the resting state */
 function setStopped(){
   stopStream();
+  pendingShot=false;
   currentDeviceId=null;
   video.srcObject=null;             // clear the frozen last frame
   finder.classList.remove('live'); finder.classList.add('idle');
   chip.classList.remove('armed','fire'); chipText.textContent='待機中';
   startBtn.disabled=false; stopBtn.disabled=true;
+  $('resTag').textContent='';
   fill.style.width='0%'; bar.classList.remove('over'); metVal.textContent='0.0'; metVal.style.color='var(--text)';
 }
 
@@ -506,7 +586,7 @@ function loop(){
   rafId=requestAnimationFrame(loop);
   if(video.readyState<2) return;            // not ready: skip without spending a slot
   const now=performance.now();
-  if(now-lastProc < PROC_MS) return;
+  if(now-lastProc < compareMs) return;       // cadence = chosen comparison interval
   lastProc=now;
 
   dCtx.drawImage(video,0,0,SW,SH);
@@ -536,22 +616,36 @@ function updateMeter(ratio){
 /* ── trigger ─────────────────────────── */
 function trigger(){
   chip.classList.add('fire'); chipText.textContent='検知';
-  setTimeout(()=>{ if(running){ chip.classList.remove('fire'); chip.classList.add('armed'); chipText.textContent=mode==='capture'?'監視中':'調整中'; } },400);
+  setTimeout(()=>{ if(running){ chip.classList.remove('fire'); chip.classList.add('armed'); chipText.textContent=mode==='capture'?'監視中':'調整中'; } },420);
   if(mode==='capture'){
-    flash.classList.remove('fire'); void flash.offsetWidth; flash.classList.add('fire');
-    capture();
+    if(delayOn && delayMs>0){
+      if(pendingShot) return;                 // don't stack multiple delayed shots
+      pendingShot=true;
+      delayTimer=setTimeout(()=>{ delayTimer=null; pendingShot=false; if(running) doShot(); }, delayMs);
+    }else{
+      doShot();
+    }
   }else{
     detect.classList.remove('fire'); void detect.offsetWidth; detect.classList.add('fire');
   }
 }
 
+/* take the actual photo (auto or manual), with the shutter flash */
+function doShot(){
+  flash.classList.remove('fire'); void flash.offsetWidth; flash.classList.add('fire');
+  capture();
+}
+
 function capture(){
+  if(!running) return;
   const w=video.videoWidth, h=video.videoHeight;
   if(!w||!h) return;
+  const myGen=captureGen;                      // remember which session this shot belongs to
   const c=document.createElement('canvas'); c.width=w; c.height=h;
   c.getContext('2d').drawImage(video,0,0,w,h);
   c.toBlob(blob=>{
-    if(!blob) return;
+    // toBlob is async: drop the result if the session ended or was cleared meanwhile
+    if(!blob || !running || myGen!==captureGen) return;
     const url=URL.createObjectURL(blob);
     shots.push({blob,url});
     lastCaptureTime=Date.now();
@@ -587,16 +681,27 @@ function refreshGallery(){
   $('clearBtn').disabled = n===0;
   if(n===0){ lastCaptureTime=null; renderLastShot(); }
 }
-$('clearBtn').addEventListener('click',()=>{
+function doClearAll(){
+  captureGen++;                                // a shot still encoding must not repopulate the gallery
   shots.forEach(s=>s&&URL.revokeObjectURL(s.url)); shots=[];
   showEmpty(); refreshGallery();
-});
+}
+const confirmModal=$('confirm');
+function openConfirm(){
+  const n=liveShots().length; if(!n) return;
+  $('confirmN').textContent=n; confirmModal.classList.add('open');
+}
+function closeConfirm(){ confirmModal.classList.remove('open'); }
+$('clearBtn').addEventListener('click',openConfirm);
+$('confirmOk').addEventListener('click',()=>{ doClearAll(); closeConfirm(); });
+$('confirmCancel').addEventListener('click',closeConfirm);
+confirmModal.addEventListener('click',e=>{ if(e.target===confirmModal) closeConfirm(); });
 
 /* ── viewer ──────────────────────────── */
 function openViewer(url){ $('viewerImg').src=url; $('viewer').classList.add('open'); }
 $('viewerClose').addEventListener('click',()=>$('viewer').classList.remove('open'));
 $('viewer').addEventListener('click',e=>{ if(e.target.id==='viewer') $('viewer').classList.remove('open'); });
-window.addEventListener('keydown',e=>{ if(e.key==='Escape') $('viewer').classList.remove('open'); });
+window.addEventListener('keydown',e=>{ if(e.key==='Escape'){ $('viewer').classList.remove('open'); closeConfirm(); } });
 
 /* ── save (Web Share, batched) ───────── */
 saveBtn.addEventListener('click',async()=>{
@@ -616,9 +721,8 @@ window.addEventListener('pagehide',()=>{ shots.forEach(s=>s&&URL.revokeObjectURL
 shutterBtn.addEventListener('click',()=>{
   if(!running) return;                       // only meaningful with a live feed
   shutterBtn.classList.remove('snap'); void shutterBtn.offsetWidth; shutterBtn.classList.add('snap');
-  flash.classList.remove('fire'); void flash.offsetWidth; flash.classList.add('fire');
   lastTrigger=performance.now();             // count manual shots toward the burst interval too
-  capture();                                 // captures regardless of mode (撮影 / 調整)
+  doShot();                                  // always immediate, regardless of mode or delay setting
 });
 
 /* ── "前回の撮影" elapsed time ─────────── */
