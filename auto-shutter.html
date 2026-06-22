@@ -89,6 +89,18 @@
   .bracket.bl{bottom:182px;left:14px;border-right:0;border-top:0;border-bottom-left-radius:5px}
   .bracket.br{bottom:182px;right:14px;border-left:0;border-top:0;border-bottom-right-radius:5px}
 
+  /* crop frame: bright window with darkened surround (box-shadow spread, clipped by finder) */
+  .crop{position:absolute;left:15%;top:15%;width:70%;height:70%;display:none;
+    border:2px solid var(--signal);border-radius:6px;pointer-events:none;
+    box-shadow:0 0 0 9999px rgba(0,0,0,.55), 0 0 0 1px rgba(0,0,0,.5) inset}
+  .finder.live.cropping .crop{display:block}
+  .finder.cropping .bracket{display:none}
+  .crop .ch{position:absolute;width:14px;height:14px;border:2px solid #fff;opacity:.92}
+  .crop .ch.tl{top:-2px;left:-2px;border-right:0;border-bottom:0}
+  .crop .ch.tr{top:-2px;right:-2px;border-left:0;border-bottom:0}
+  .crop .ch.bl{bottom:-2px;left:-2px;border-right:0;border-top:0}
+  .crop .ch.br{bottom:-2px;right:-2px;border-left:0;border-top:0}
+
   /* manual shutter button (over the live feed) */
   .shutter{position:absolute;left:50%;bottom:106px;transform:translateX(-50%);
     width:64px;height:64px;border-radius:50%;border:3px solid rgba(255,255,255,.92);
@@ -209,6 +221,15 @@
   .subfader{margin-top:14px;padding-left:13px;border-left:2px solid var(--line);transition:opacity .2s}
   .subfader[data-off="true"]{opacity:.4}
 
+  /* aspect-ratio preset chips */
+  .chips{display:flex;gap:7px;flex-wrap:wrap}
+  .chip-btn{appearance:none;border:1px solid var(--line);background:var(--surface-2);color:var(--muted);
+    font-family:var(--mono);font-size:11.5px;font-weight:600;letter-spacing:.04em;
+    padding:6px 11px;border-radius:8px;cursor:pointer;transition:color .2s,border-color .2s,background .2s}
+  .chip-btn.on{color:#062420;background:linear-gradient(180deg,#52f0d4,var(--signal));border-color:transparent}
+  .chip-btn:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+  .cropSize{margin-top:13px;font-family:var(--mono);font-size:11.5px;color:var(--muted);letter-spacing:.03em}
+
   /* buttons */
   .actions{display:flex;gap:10px;margin-top:16px}
   .btn{flex:1;appearance:none;border:1px solid var(--line-2);background:var(--surface-2);color:var(--text);
@@ -292,6 +313,7 @@
 
 <div class="finder idle" id="finder">
   <video id="video" playsinline muted autoplay></video>
+  <div class="crop" id="crop"><span class="ch tl"></span><span class="ch tr"></span><span class="ch bl"></span><span class="ch br"></span></div>
   <span class="bracket tl"></span><span class="bracket tr"></span>
   <span class="bracket bl"></span><span class="bracket br"></span>
   <div class="rec"><span class="d"></span><span id="recText">監視中</span><span class="resTag" id="resTag"></span></div>
@@ -335,6 +357,33 @@
   <div class="row">
     <div class="k">カメラ / レンズ<em>複数あるときに切り替えられます</em></div>
     <div class="sel-wrap"><select id="camSelect"><option>開始すると一覧表示</option></select></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="fader">
+    <div class="head">
+      <div class="name">検知・撮影範囲<em id="cropHint">映像全体を使います</em></div>
+      <label class="switch"><input type="checkbox" id="cropToggle"><span class="track"></span></label>
+    </div>
+    <div class="subfader" id="cropRow" data-off="true">
+      <div class="chips" id="cropPresets">
+        <button class="chip-btn" data-w="0.96" data-h="0.405">16:9</button>
+        <button class="chip-btn" data-w="0.96" data-h="0.54">4:3</button>
+        <button class="chip-btn" data-w="0.96" data-h="0.72">1:1</button>
+        <button class="chip-btn" data-w="0.9" data-h="0.9">3:4</button>
+        <button class="chip-btn" data-w="0.72" data-h="0.96">9:16</button>
+      </div>
+      <div class="fader" style="margin-top:14px">
+        <div class="head"><div class="name">横幅</div><div class="v" id="cropWV">70%</div></div>
+        <input type="range" id="cropW" min="20" max="100" step="1" value="70" disabled>
+      </div>
+      <div class="fader" style="margin-top:14px">
+        <div class="head"><div class="name">縦幅</div><div class="v" id="cropHV">70%</div></div>
+        <input type="range" id="cropH" min="20" max="100" step="1" value="70" disabled>
+      </div>
+      <div class="cropSize" id="cropSize">撮影サイズ：開始すると表示</div>
+    </div>
   </div>
 </div>
 
@@ -435,6 +484,7 @@ let delayOn=false, delayMs=300;    // capture instantly, or wait a moment after 
 let pendingShot=false;             // a delayed capture is already queued
 let delayTimer=null;               // id of the pending delayed-capture timer (so we can cancel it)
 let captureGen=0;                  // session token: invalidates in-flight captures on stop/switch/clear
+let cropOn=false, cropW=0.70, cropH=0.70;  // detection/capture window as a fraction of the finder
 const SCALE_MAX=0.40;              // meter spans 0..40%, matching the area slider's max
 
 /* ── faders ──────────────────────────── */
@@ -455,6 +505,61 @@ $('delayToggle').addEventListener('change',e=>{
 });
 function positionTick(){ tick.style.left=Math.min(100, areaThresh/SCALE_MAX*100).toFixed(1)+'%'; }
 positionTick();
+
+/* ── crop / detection-capture window ─── */
+const cropEl=$('crop');
+function applyCropStyle(){
+  cropEl.style.width=(cropW*100).toFixed(1)+'%';
+  cropEl.style.height=(cropH*100).toFixed(1)+'%';
+  cropEl.style.left=((1-cropW)/2*100).toFixed(1)+'%';
+  cropEl.style.top=((1-cropH)/2*100).toFixed(1)+'%';
+  finder.classList.toggle('cropping', cropOn);
+}
+// map the (centered) crop window to source-video pixels, accounting for object-fit:cover
+function srcRect(){
+  const Vw=video.videoWidth, Vh=video.videoHeight;
+  if(!cropOn || !Vw || !Vh) return {sx:0,sy:0,sw:Vw,sh:Vh};
+  const Fw=finder.clientWidth, Fh=finder.clientHeight;
+  const scale=Math.max(Fw/Vw, Fh/Vh);               // cover scale
+  let sw=(cropW*Fw)/scale, sh=(cropH*Fh)/scale;      // window size in source px
+  let sx=(Vw-sw)/2, sy=(Vh-sh)/2;                    // centered
+  sx=Math.max(0,sx); sy=Math.max(0,sy);
+  sw=Math.max(1,Math.min(sw,Vw-sx)); sh=Math.max(1,Math.min(sh,Vh-sy));
+  return {sx,sy,sw,sh};
+}
+function updateCropSize(){
+  if(!cropOn){ $('cropSize').textContent='映像全体を使用中'; return; }
+  if(!running || !video.videoWidth){ $('cropSize').textContent='撮影サイズ：開始すると表示'; return; }
+  const r=srcRect();
+  $('cropSize').textContent=`撮影サイズ：約 ${Math.round(r.sw)}×${Math.round(r.sh)} px`;
+}
+function markPreset(){
+  document.querySelectorAll('#cropPresets .chip-btn').forEach(b=>{
+    b.classList.toggle('on', Math.abs((+b.dataset.w)-cropW)<0.005 && Math.abs((+b.dataset.h)-cropH)<0.005);
+  });
+}
+$('cropToggle').addEventListener('change',e=>{
+  cropOn=e.target.checked;
+  $('cropW').disabled=!cropOn; $('cropH').disabled=!cropOn;
+  $('cropRow').dataset.off = cropOn ? 'false' : 'true';
+  $('cropHint').textContent = cropOn ? 'フレーム内だけを検知・撮影します' : '映像全体を使います';
+  applyCropStyle(); prev=null; updateCropSize();
+});
+$('cropW').addEventListener('input',e=>{
+  cropW=(+e.target.value)/100; $('cropWV').textContent=e.target.value+'%';
+  applyCropStyle(); markPreset(); prev=null; updateCropSize();
+});
+$('cropH').addEventListener('input',e=>{
+  cropH=(+e.target.value)/100; $('cropHV').textContent=e.target.value+'%';
+  applyCropStyle(); markPreset(); prev=null; updateCropSize();
+});
+document.querySelectorAll('#cropPresets .chip-btn').forEach(b=>b.addEventListener('click',()=>{
+  cropW=+b.dataset.w; cropH=+b.dataset.h;
+  $('cropW').value=Math.round(cropW*100); $('cropWV').textContent=Math.round(cropW*100)+'%';
+  $('cropH').value=Math.round(cropH*100); $('cropHV').textContent=Math.round(cropH*100)+'%';
+  applyCropStyle(); markPreset(); prev=null; updateCropSize();
+}));
+applyCropStyle();
 
 /* ── mode segmented control ──────────── */
 const knob=$('knob'), segBtns=document.querySelectorAll('#seg button');
@@ -552,6 +657,7 @@ async function start(deviceId){
   finder.classList.remove('idle'); finder.classList.add('live');
   chip.classList.remove('fire'); chip.classList.add('armed'); chipText.textContent='監視中';
   startBtn.disabled=true; stopBtn.disabled=false;
+  updateCropSize();
   loop();
 }
 
@@ -576,6 +682,7 @@ function setStopped(){
   startBtn.disabled=false; stopBtn.disabled=true;
   $('resTag').textContent='';
   fill.style.width='0%'; bar.classList.remove('over'); metVal.textContent='0.0'; metVal.style.color='var(--text)';
+  updateCropSize();
 }
 
 startBtn.addEventListener('click',()=>start());
@@ -591,7 +698,8 @@ function loop(){
   if(now-lastProc < compareMs) return;       // cadence = chosen comparison interval
   lastProc=now;
 
-  dCtx.drawImage(video,0,0,SW,SH);
+  const r=srcRect();
+  dCtx.drawImage(video, r.sx, r.sy, r.sw, r.sh, 0, 0, SW, SH);
   const curr=dCtx.getImageData(0,0,SW,SH).data;
 
   if(prev){
@@ -640,11 +748,13 @@ function doShot(){
 
 function capture(){
   if(!running) return;
-  const w=video.videoWidth, h=video.videoHeight;
+  if(!video.videoWidth || !video.videoHeight) return;
+  const r=srcRect();
+  const w=Math.round(r.sw), h=Math.round(r.sh);
   if(!w||!h) return;
   const myGen=captureGen;                      // remember which session this shot belongs to
   const c=document.createElement('canvas'); c.width=w; c.height=h;
-  c.getContext('2d').drawImage(video,0,0,w,h);
+  c.getContext('2d').drawImage(video, r.sx, r.sy, r.sw, r.sh, 0, 0, w, h);
   c.toBlob(blob=>{
     // toBlob is async: drop the result if the session ended or was cleared meanwhile
     if(!blob || !running || myGen!==captureGen) return;
