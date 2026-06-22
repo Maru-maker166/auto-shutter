@@ -3,196 +3,321 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#0a0c0f">
 <title>Auto Shutter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0c0e11;
-    --panel:#14181d;
-    --panel-2:#1b2026;
-    --line:#272d35;
-    --text:#e8ebee;
-    --muted:#828b96;
-    --accent:#2dd4bf;      /* armed / detect */
-    --hot:#ff375f;         /* trigger / over threshold */
-    --mono: ui-monospace, "SF Mono", "Menlo", "Roboto Mono", monospace;
-    --sans: -apple-system, system-ui, "Hiragino Sans", sans-serif;
+    --bg:#0a0c0f;
+    --surface:rgba(255,255,255,.04);
+    --surface-2:rgba(255,255,255,.025);
+    --solid:#12161b;
+    --line:rgba(255,255,255,.08);
+    --line-2:rgba(255,255,255,.14);
+    --text:#f3f6f8;
+    --muted:#8a94a1;
+    --faint:#5b636e;
+
+    --signal:#34e3c4;     /* armed / calm */
+    --warn:#ffce3a;       /* approaching */
+    --hot:#ff4d6d;        /* trigger / over threshold */
+
+    --display:"Space Grotesk", -apple-system, system-ui, sans-serif;
+    --mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --sans:-apple-system, system-ui, "Hiragino Sans", sans-serif;
+
+    --r:16px;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans)}
   body{
-    max-width:560px;margin:0 auto;
-    padding:env(safe-area-inset-top) 14px calc(env(safe-area-inset-bottom) + 14px);
-    -webkit-user-select:none;user-select:none;
+    max-width:540px;margin:0 auto;-webkit-user-select:none;user-select:none;
+    padding:calc(env(safe-area-inset-top) + 6px) 14px calc(env(safe-area-inset-bottom) + 18px);
+    background:
+      radial-gradient(120% 80% at 50% -10%, rgba(52,227,196,.06), transparent 60%),
+      radial-gradient(120% 90% at 50% 120%, rgba(255,77,109,.05), transparent 55%),
+      var(--bg);
+    min-height:100dvh;
   }
 
-  header{display:flex;align-items:center;justify-content:space-between;padding:14px 2px 10px}
-  header h1{
-    font-size:15px;letter-spacing:.18em;font-weight:600;margin:0;text-transform:uppercase;
-    color:var(--text);
-  }
-  header h1 span{color:var(--muted)}
-  .status{
-    font-family:var(--mono);font-size:11px;letter-spacing:.12em;
-    padding:5px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted);
-    display:flex;align-items:center;gap:6px;
-  }
-  .status .led{width:7px;height:7px;border-radius:50%;background:var(--muted)}
-  .status.live{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
-  .status.live .led{background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 1.6s infinite}
-  @keyframes pulse{50%{opacity:.35}}
+  /* ── header ───────────────────────────── */
+  header{display:flex;align-items:center;justify-content:space-between;padding:12px 4px 14px}
+  .brand{display:flex;align-items:center;gap:10px}
+  .aperture{width:22px;height:22px;flex:0 0 auto;color:var(--signal);opacity:.9}
+  .wordmark{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.04em;line-height:1}
+  .wordmark b{font-weight:700}
+  .wordmark span{color:var(--muted);font-weight:500}
 
-  /* video stage */
-  .stage{
-    position:relative;border-radius:16px;overflow:hidden;background:#000;
-    border:1px solid var(--line);aspect-ratio:3/4;
+  .chip{
+    display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);
+    font-size:10.5px;font-weight:600;letter-spacing:.14em;color:var(--muted);
+    padding:6px 11px;border-radius:999px;border:1px solid var(--line);
+    background:var(--surface);transition:color .25s,border-color .25s,background .25s;
+  }
+  .chip .led{width:7px;height:7px;border-radius:50%;background:var(--faint);transition:background .25s,box-shadow .25s}
+  .chip.armed{color:var(--signal);border-color:color-mix(in srgb,var(--signal) 38%,transparent);background:color-mix(in srgb,var(--signal) 8%,transparent)}
+  .chip.armed .led{background:var(--signal);box-shadow:0 0 9px var(--signal);animation:breathe 1.8s ease-in-out infinite}
+  .chip.fire{color:var(--hot);border-color:color-mix(in srgb,var(--hot) 50%,transparent);background:color-mix(in srgb,var(--hot) 12%,transparent)}
+  .chip.fire .led{background:var(--hot);box-shadow:0 0 12px var(--hot);animation:none}
+  @keyframes breathe{50%{opacity:.35}}
+
+  /* ── viewfinder (hero) ────────────────── */
+  .finder{
+    position:relative;border-radius:var(--r);overflow:hidden;background:#000;
+    aspect-ratio:3/4;border:1px solid var(--line-2);
+    box-shadow:0 1px 0 rgba(255,255,255,.04) inset, 0 24px 50px -28px rgba(0,0,0,.9);
   }
   video{width:100%;height:100%;object-fit:cover;display:block;background:#000}
-  .stage.idle::after{
-    content:"カメラは停止中";position:absolute;inset:0;display:grid;place-items:center;
-    color:var(--muted);font-size:13px;letter-spacing:.08em;
+  .finder.idle video{opacity:0}
+  .finder.idle .idleMsg{opacity:1}
+  .idleMsg{
+    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+    color:var(--muted);text-align:center;padding:24px;opacity:0;transition:opacity .3s;
+    background:repeating-linear-gradient(135deg,rgba(255,255,255,.012) 0 12px,transparent 12px 24px);
   }
-  /* trigger flash */
+  .idleMsg .big{font-family:var(--display);font-size:15px;letter-spacing:.02em;color:var(--text)}
+  .idleMsg .sub{font-size:12px;line-height:1.6;max-width:240px}
+  .idleMsg .aperture{width:34px;height:34px;color:var(--faint)}
+
+  /* corner brackets — camera framing signature */
+  .bracket{position:absolute;width:26px;height:26px;border:2px solid rgba(255,255,255,.55);pointer-events:none;opacity:0;transition:opacity .3s}
+  .finder.live .bracket{opacity:.7}
+  .bracket.tl{top:14px;left:14px;border-right:0;border-bottom:0;border-top-left-radius:5px}
+  .bracket.tr{top:14px;right:14px;border-left:0;border-bottom:0;border-top-right-radius:5px}
+  .bracket.bl{bottom:182px;left:14px;border-right:0;border-top:0;border-bottom-left-radius:5px}
+  .bracket.br{bottom:182px;right:14px;border-left:0;border-top:0;border-bottom-right-radius:5px}
+
+  /* manual shutter button (over the live feed) */
+  .shutter{position:absolute;left:50%;bottom:106px;transform:translateX(-50%);
+    width:64px;height:64px;border-radius:50%;border:3px solid rgba(255,255,255,.92);
+    background:transparent;padding:0;cursor:pointer;
+    box-shadow:0 6px 18px rgba(0,0,0,.45);opacity:0;pointer-events:none;
+    transition:opacity .3s,transform .12s}
+  .shutter::after{content:"";position:absolute;inset:5px;border-radius:50%;background:#fff;
+    transition:transform .12s,background .12s}
+  .finder.live .shutter{opacity:1;pointer-events:auto}
+  .shutter:active{transform:translateX(-50%) scale(.96)}
+  .shutter:active::after{transform:scale(.84);background:#e6e6e6}
+  .shutter.snap::after{animation:snap .3s ease-out}
+  @keyframes snap{0%{transform:scale(.7);background:#cfcfcf}100%{transform:scale(1);background:#fff}}
+  .shutter:focus-visible{outline:2px solid var(--signal);outline-offset:3px}
+
+  /* rec badge */
+  .rec{
+    position:absolute;top:14px;left:50%;transform:translateX(-50%);
+    display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10.5px;
+    letter-spacing:.16em;color:#fff;background:rgba(0,0,0,.42);backdrop-filter:blur(8px);
+    padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.16);opacity:0;transition:opacity .3s}
+  .finder.live .rec{opacity:1}
+  .rec .d{width:8px;height:8px;border-radius:50%;background:var(--signal);box-shadow:0 0 8px var(--signal)}
+  .finder.modeCal .rec .d{background:var(--warn);box-shadow:0 0 8px var(--warn)}
+
+  /* trigger flash + detect pulse */
   .flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
-  .flash.fire{animation:flash .28s ease-out}
-  @keyframes flash{0%{opacity:.85}100%{opacity:0}}
-  /* detect mark (calibration) */
-  .mark{
-    position:absolute;top:14px;right:14px;display:flex;align-items:center;gap:7px;
-    font-family:var(--mono);font-size:12px;letter-spacing:.14em;color:var(--hot);
-    background:rgba(0,0,0,.45);padding:6px 10px;border-radius:999px;
-    opacity:0;transform:scale(.9);transition:opacity .08s;
-  }
-  .mark.fire{opacity:1;transform:scale(1);transition:none}
-  .mark .dot{width:9px;height:9px;border-radius:50%;background:var(--hot);box-shadow:0 0 10px var(--hot)}
-  /* live meter pinned to bottom of video */
-  .meter-wrap{position:absolute;left:12px;right:12px;bottom:12px}
-  .meter-top{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px}
-  .meter-val{font-family:var(--mono);font-size:26px;font-weight:600;line-height:1;
-    text-shadow:0 1px 6px rgba(0,0,0,.6)}
-  .meter-val small{font-size:13px;color:var(--muted);font-weight:400;margin-left:3px}
-  .meter-lab{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:#cbd2da;
-    text-shadow:0 1px 4px rgba(0,0,0,.8)}
-  .bar{position:relative;height:8px;border-radius:6px;background:rgba(255,255,255,.16);overflow:visible}
-  .bar .fill{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:var(--accent);width:0%}
-  .bar .fill.over{background:var(--hot)}
-  .bar .thresh{position:absolute;top:-4px;bottom:-4px;width:2px;background:#fff;border-radius:2px;left:30%;
-    box-shadow:0 0 6px rgba(0,0,0,.7)}
+  .flash.fire{animation:flash .3s ease-out}
+  @keyframes flash{0%{opacity:.9}100%{opacity:0}}
+  .detect{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(.85);
+    display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:13px;letter-spacing:.16em;
+    color:#fff;background:rgba(0,0,0,.5);backdrop-filter:blur(8px);padding:11px 16px;border-radius:999px;
+    border:1px solid color-mix(in srgb,var(--hot) 60%,transparent);opacity:0;pointer-events:none}
+  .detect .d{width:10px;height:10px;border-radius:50%;background:var(--hot);box-shadow:0 0 12px var(--hot)}
+  .detect.fire{animation:pop .42s ease-out}
+  @keyframes pop{0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}30%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}100%{opacity:0;transform:translate(-50%,-50%) scale(1)}}
 
-  /* controls */
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:12px}
-  .row{display:flex;align-items:center;justify-content:space-between;gap:12px}
-  .row + .row{margin-top:14px}
-  label.k{font-size:13px;color:var(--text)}
-  label.k em{display:block;font-style:normal;font-size:11px;color:var(--muted);margin-top:2px}
+  /* HUD readout pinned to bottom of finder */
+  .hud{position:absolute;left:12px;right:12px;bottom:12px;
+    background:linear-gradient(to top,rgba(0,0,0,.55),rgba(0,0,0,.18));
+    backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.12);border-radius:13px;padding:11px 13px}
+  .hud-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:9px}
+  .hud-metric{display:flex;flex-direction:column;gap:4px;min-width:0}
+  .hud-metric.right{align-items:flex-end;text-align:right}
+  .hud-lab{font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:#aab2bb}
+  .hud-val{font-family:var(--mono);font-weight:600;font-size:25px;line-height:1;color:var(--text);font-variant-numeric:tabular-nums}
+  .hud-val small{font-size:12px;color:var(--muted);font-weight:400;margin-left:2px}
+  .hud-time{font-family:var(--mono);font-weight:600;font-size:16px;line-height:1.1;color:var(--signal);
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  .hud-time.stale{color:var(--muted)}
+  .bar{position:relative;height:7px;border-radius:6px;background:rgba(255,255,255,.14);overflow:visible}
+  .bar .fill{position:absolute;inset:0 auto 0 0;width:0%;border-radius:6px;
+    background:linear-gradient(90deg,var(--signal),var(--warn) 70%,var(--hot));transition:width .07s linear}
+  .bar.over .fill{box-shadow:0 0 12px color-mix(in srgb,var(--hot) 70%,transparent)}
+  .bar .tick{position:absolute;top:-4px;bottom:-4px;width:2px;left:30%;border-radius:2px;
+    background:#fff;box-shadow:0 0 5px rgba(0,0,0,.8)}
+  .bar .tick::after{content:"";position:absolute;top:-5px;left:-3px;border-left:4px solid transparent;
+    border-right:4px solid transparent;border-top:5px solid #fff}
 
-  /* mode toggle */
-  .toggle{display:inline-flex;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:3px;position:relative}
-  .toggle button{
-    appearance:none;border:0;background:transparent;color:var(--muted);
-    font-family:var(--sans);font-size:12.5px;font-weight:600;padding:8px 13px;border-radius:8px;
-    z-index:1;transition:color .2s;cursor:pointer;
-  }
-  .toggle button.on{color:#06201d}
-  .toggle .knob{position:absolute;top:3px;bottom:3px;border-radius:8px;background:var(--accent);
-    transition:transform .22s cubic-bezier(.4,1.2,.5,1),width .22s;z-index:0}
+  /* ── cards ────────────────────────────── */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:15px;margin-top:12px;
+    backdrop-filter:blur(6px)}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:14px}
+  .row + .row{margin-top:15px}
+  .k{font-size:13.5px;color:var(--text);font-weight:500}
+  .k em{display:block;font-style:normal;font-size:11px;color:var(--muted);margin-top:3px;line-height:1.4;font-weight:400}
 
-  select{
-    appearance:none;background:var(--panel-2);color:var(--text);border:1px solid var(--line);
-    border-radius:10px;padding:9px 30px 9px 11px;font-size:13px;font-family:var(--sans);max-width:62%;
-    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23828b96'><path d='M2 4l4 4 4-4'/></svg>");
-    background-repeat:no-repeat;background-position:right 11px center;
-  }
+  /* segmented mode control */
+  .seg{position:relative;display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:3px;flex:0 0 auto}
+  .seg button{appearance:none;border:0;background:transparent;color:var(--muted);font-family:var(--display);
+    font-weight:600;font-size:13px;padding:8px 16px;border-radius:8px;z-index:1;transition:color .25s;cursor:pointer}
+  .seg button.on{color:#062420}
+  .seg .knob{position:absolute;top:3px;bottom:3px;border-radius:8px;
+    background:linear-gradient(180deg,#52f0d4,var(--signal));z-index:0;
+    transition:transform .26s cubic-bezier(.34,1.3,.5,1),width .26s;box-shadow:0 4px 14px -6px var(--signal)}
 
-  input[type=range]{-webkit-appearance:none;width:100%;height:28px;background:transparent}
-  input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:4px;background:var(--line)}
+  /* select */
+  .sel-wrap{position:relative;max-width:60%}
+  select{appearance:none;width:100%;background:var(--surface-2);color:var(--text);border:1px solid var(--line);
+    border-radius:10px;padding:10px 34px 10px 12px;font-size:13px;font-family:var(--sans);cursor:pointer;
+    text-overflow:ellipsis}
+  .sel-wrap::after{content:"";position:absolute;right:13px;top:50%;width:8px;height:8px;
+    border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);
+    transform:translateY(-65%) rotate(45deg);pointer-events:none}
+
+  /* faders */
+  .fader + .fader{margin-top:18px}
+  .fader .head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:2px}
+  .fader .name{font-size:13px;font-weight:500}
+  .fader .name em{display:block;font-style:normal;font-size:11px;color:var(--muted);margin-top:2px;font-weight:400}
+  .fader .v{font-family:var(--mono);font-weight:600;font-size:14px;color:var(--signal);font-variant-numeric:tabular-nums}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:30px;background:transparent;cursor:pointer}
+  input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:4px;
+    background:linear-gradient(90deg,color-mix(in srgb,var(--signal) 55%,var(--line)),var(--line))}
+  input[type=range]::-moz-range-track{height:4px;border-radius:4px;background:var(--line)}
   input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;
-    background:var(--text);margin-top:-9px;box-shadow:0 1px 4px rgba(0,0,0,.5)}
-  .slider{margin-top:12px}
-  .slider .head{display:flex;justify-content:space-between;font-size:12px;margin-bottom:-2px}
-  .slider .head .v{font-family:var(--mono);color:var(--accent)}
-  .slider .head .name em{font-style:normal;color:var(--muted);font-size:11px;display:block;margin-top:1px}
+    background:#fff;margin-top:-9px;box-shadow:0 2px 8px rgba(0,0,0,.5),0 0 0 4px rgba(52,227,196,.14)}
+  input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:50%;background:#fff;
+    box-shadow:0 2px 8px rgba(0,0,0,.5)}
+  input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 4px rgba(52,227,196,.4)}
 
-  .actions{display:flex;gap:10px;margin-top:12px}
-  button.btn{
-    flex:1;appearance:none;border:1px solid var(--line);background:var(--panel-2);color:var(--text);
-    font-family:var(--sans);font-size:14px;font-weight:600;padding:14px;border-radius:12px;cursor:pointer;
-  }
-  button.btn.primary{background:var(--accent);color:#06201d;border-color:var(--accent)}
-  button.btn.stop{background:transparent;color:var(--hot);border-color:color-mix(in srgb,var(--hot) 45%,var(--line))}
-  button.btn:disabled{opacity:.4}
-  button.btn .n{font-family:var(--mono);opacity:.8}
+  /* buttons */
+  .actions{display:flex;gap:10px;margin-top:16px}
+  .btn{flex:1;appearance:none;border:1px solid var(--line-2);background:var(--surface-2);color:var(--text);
+    font-family:var(--display);font-weight:600;font-size:14.5px;padding:14px;border-radius:13px;cursor:pointer;
+    transition:transform .1s,filter .2s,opacity .2s}
+  .btn:active{transform:scale(.98)}
+  .btn.primary{background:linear-gradient(180deg,#52f0d4,var(--signal));color:#062420;border-color:transparent;
+    box-shadow:0 8px 22px -10px var(--signal)}
+  .btn.stop{background:transparent;color:var(--hot);border-color:color-mix(in srgb,var(--hot) 45%,var(--line))}
+  .btn.save{background:var(--surface);font-size:14px}
+  .btn:disabled{opacity:.35;cursor:not-allowed}
+  .btn:disabled:active{transform:none}
+  .btn .n{font-family:var(--mono);opacity:.75;font-weight:500}
+  .btn:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
 
-  /* gallery */
-  .gallery-head{display:flex;justify-content:space-between;align-items:center;margin:18px 2px 8px}
-  .gallery-head h2{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:0;font-weight:600}
-  .gallery-head .clear{font-size:12px;color:var(--muted);background:none;border:0;cursor:pointer;font-family:var(--mono)}
-  .strip{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 8px;-webkit-overflow-scrolling:touch}
-  .strip .empty{color:var(--muted);font-size:12px;padding:18px 4px}
-  .thumb{position:relative;flex:0 0 auto;width:76px;height:101px;border-radius:9px;overflow:hidden;border:1px solid var(--line)}
-  .thumb img{width:100%;height:100%;object-fit:cover;display:block}
-  .thumb .x{position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;border:0;
-    background:rgba(0,0,0,.6);color:#fff;font-size:13px;line-height:20px;cursor:pointer;padding:0}
+  /* inline notice */
+  .notice{margin-top:12px;font-size:12.5px;line-height:1.5;color:var(--hot);
+    border:1px solid color-mix(in srgb,var(--hot) 35%,transparent);background:color-mix(in srgb,var(--hot) 8%,transparent);
+    border-radius:11px;padding:11px 13px;display:none}
+  .notice.show{display:block}
 
-  /* viewer modal */
-  .viewer{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;z-index:50;
-    flex-direction:column;align-items:center;justify-content:center;padding:20px}
+  /* ── gallery ──────────────────────────── */
+  .g-head{display:flex;justify-content:space-between;align-items:center;margin:22px 4px 10px}
+  .g-head h2{font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin:0;font-weight:600}
+  .g-head .clear{font-family:var(--mono);font-size:12px;color:var(--muted);background:none;border:0;cursor:pointer;padding:4px}
+  .g-head .clear:disabled{opacity:.35}
+  .strip{display:flex;gap:9px;overflow-x:auto;padding:2px 2px 10px;scroll-behavior:smooth;-webkit-overflow-scrolling:touch}
+  .strip::-webkit-scrollbar{height:0}
+  .empty{color:var(--muted);font-size:12.5px;line-height:1.6;padding:18px 6px;max-width:300px}
+  .thumb{position:relative;flex:0 0 auto;width:78px;height:104px;border-radius:10px;overflow:hidden;
+    border:1px solid var(--line-2);background:#000}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in}
+  .thumb .x{position:absolute;top:4px;right:4px;width:21px;height:21px;border-radius:50%;border:0;
+    background:rgba(0,0,0,.62);backdrop-filter:blur(4px);color:#fff;font-size:14px;line-height:21px;cursor:pointer;padding:0}
+  .thumb .idx{position:absolute;bottom:4px;left:5px;font-family:var(--mono);font-size:9px;color:#fff;
+    background:rgba(0,0,0,.5);padding:1px 5px;border-radius:4px;letter-spacing:.05em}
+
+  /* viewer */
+  .viewer{position:fixed;inset:0;background:rgba(4,5,7,.93);backdrop-filter:blur(6px);display:none;z-index:50;
+    flex-direction:column;align-items:center;justify-content:center;padding:22px}
   .viewer.open{display:flex}
-  .viewer img{max-width:100%;max-height:78vh;border-radius:10px}
-  .viewer p{color:var(--muted);font-size:12px;margin:14px 0 0;text-align:center;line-height:1.6}
-  .viewer .close{position:absolute;top:calc(env(safe-area-inset-top) + 12px);right:16px;
-    background:none;border:0;color:#fff;font-size:26px;cursor:pointer}
+  .viewer img{max-width:100%;max-height:76vh;border-radius:12px;box-shadow:0 20px 60px -20px #000}
+  .viewer p{color:var(--muted);font-size:12px;margin:16px 0 0;text-align:center;line-height:1.6;max-width:300px}
+  .viewer .close{position:absolute;top:calc(env(safe-area-inset-top) + 12px);right:18px;
+    width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.1);border:0;color:#fff;font-size:22px;cursor:pointer}
 
-  .note{font-size:11.5px;color:var(--muted);line-height:1.7;margin:14px 4px 0}
-  .note code{font-family:var(--mono);color:#aeb6c0}
+  .foot{font-size:11.5px;color:var(--faint);line-height:1.7;margin:16px 4px 0}
+  .foot code{font-family:var(--mono);color:var(--muted)}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.001ms !important;transition-duration:.001ms !important}
+  }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>Auto&nbsp;<span>/</span>&nbsp;Shutter</h1>
-  <div class="status" id="status"><span class="led"></span><span id="statusText">STOPPED</span></div>
+  <div class="brand">
+    <svg class="aperture" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+      <circle cx="12" cy="12" r="9.2"/>
+      <path d="M12 2.8 L15.5 9 M21.2 12 L14 12.8 M15.5 21 L12 14.6 M2.8 12 L9.6 11.2 M8.5 3 L12 9.4 M3 15.5 L9.4 12"/>
+    </svg>
+    <div class="wordmark"><b>Auto Shutter</b> <span>/ motion</span></div>
+  </div>
+  <div class="chip" id="chip"><span class="led"></span><span id="chipText">待機中</span></div>
 </header>
 
-<div class="stage idle" id="stage">
+<div class="finder idle" id="finder">
   <video id="video" playsinline muted autoplay></video>
+  <span class="bracket tl"></span><span class="bracket tr"></span>
+  <span class="bracket bl"></span><span class="bracket br"></span>
+  <div class="rec"><span class="d"></span><span id="recText">監視中</span></div>
   <div class="flash" id="flash"></div>
-  <div class="mark" id="mark"><span class="dot"></span>DETECT</div>
-  <div class="meter-wrap">
-    <div class="meter-top">
-      <div class="meter-val"><span id="metVal">0.0</span><small>%</small></div>
-      <div class="meter-lab" id="metLab">変化量</div>
+  <div class="detect" id="detect"><span class="d"></span>検知</div>
+
+  <div class="idleMsg">
+    <svg class="aperture" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+      <circle cx="12" cy="12" r="9.2"/><path d="M12 2.8 L15.5 9 M21.2 12 L14 12.8 M15.5 21 L12 14.6 M2.8 12 L9.6 11.2 M8.5 3 L12 9.4 M3 15.5 L9.4 12"/>
+    </svg>
+    <div class="big">カメラは停止中</div>
+    <div class="sub">「開始」を押すと監視を始め、動きを検知して自動で撮影します。</div>
+  </div>
+
+  <button class="shutter" id="shutterBtn" aria-label="手動で撮影"></button>
+
+  <div class="hud">
+    <div class="hud-top">
+      <div class="hud-metric">
+        <div class="hud-lab">MOTION</div>
+        <div class="hud-val"><span id="metVal">0.0</span><small>%</small></div>
+      </div>
+      <div class="hud-metric right">
+        <div class="hud-lab">前回の撮影</div>
+        <div class="hud-time" id="lastShot">—</div>
+      </div>
     </div>
-    <div class="bar"><div class="fill" id="fill"></div><div class="thresh" id="threshMark"></div></div>
+    <div class="bar" id="bar"><div class="fill" id="fill"></div><div class="tick" id="tick"></div></div>
   </div>
 </div>
 
 <div class="card">
   <div class="row">
-    <label class="k">モード<em id="modeHint">写真を撮影します</em></label>
-    <div class="toggle" id="toggle">
+    <div class="k">モード<em id="modeHint">動きを検知したら写真を撮ります</em></div>
+    <div class="seg" id="seg">
       <span class="knob" id="knob"></span>
       <button data-mode="capture" class="on">撮影</button>
       <button data-mode="calibrate">調整</button>
     </div>
   </div>
   <div class="row">
-    <label class="k">カメラ / レンズ<em>複数ある場合は選択できます</em></label>
-    <select id="camSelect"><option>— 開始すると一覧表示 —</option></select>
+    <div class="k">カメラ / レンズ<em>複数あるときに切り替えられます</em></div>
+    <div class="sel-wrap"><select id="camSelect"><option>開始すると一覧表示</option></select></div>
   </div>
 </div>
 
 <div class="card">
-  <div class="slider">
-    <div class="head"><span class="name">感度（範囲）<em>画面の何%が動いたら反応するか</em></span><span class="v" id="areaV">5.0%</span></div>
+  <div class="fader">
+    <div class="head"><div class="name">検知範囲<em>画面の何%が動いたら反応するか</em></div><div class="v" id="areaV">5.0%</div></div>
     <input type="range" id="area" min="1" max="400" value="50">
   </div>
-  <div class="slider">
-    <div class="head"><span class="name">ノイズ耐性<em>小さな明るさ変化を無視する強さ</em></span><span class="v" id="pixV">25</span></div>
+  <div class="fader">
+    <div class="head"><div class="name">ノイズ耐性<em>小さな明るさの揺らぎを無視する強さ</em></div><div class="v" id="pixV">25</div></div>
     <input type="range" id="pix" min="5" max="80" value="25">
   </div>
-  <div class="slider">
-    <div class="head"><span class="name">連写防止<em>1回反応してから次まで待つ時間</em></span><span class="v" id="coolV">0.8s</span></div>
-    <input type="range" id="cool" min="0" max="3000" step="100" value="800">
+  <div class="fader">
+    <div class="head"><div class="name">連写間隔<em>1回撮ってから次までの最短待ち時間</em></div><div class="v" id="coolV">0.8s</div></div>
+    <input type="range" id="cool" min="200" max="3000" step="100" value="800">
   </div>
 
   <div class="actions">
@@ -200,144 +325,189 @@
     <button class="btn stop" id="stopBtn" disabled>停止</button>
   </div>
   <div class="actions">
-    <button class="btn" id="saveBtn" disabled>写真ライブラリに保存 <span class="n" id="saveN"></span></button>
+    <button class="btn save" id="saveBtn" disabled>写真に保存 <span class="n" id="saveN"></span></button>
   </div>
+  <div class="notice" id="notice"></div>
 </div>
 
-<div class="gallery-head">
+<div class="g-head">
   <h2>撮影した写真</h2>
-  <button class="clear" id="clearBtn">すべて消去</button>
+  <button class="clear" id="clearBtn" disabled>すべて消去</button>
 </div>
-<div class="strip" id="strip"><div class="empty">まだありません</div></div>
+<div class="strip" id="strip">
+  <div class="empty">まだ写真はありません。監視を始めると、ここに自動撮影した写真が並びます。</div>
+</div>
 
-<p class="note">
-  ※ カメラは <code>https://</code> のページでのみ起動します（iPhoneでは <code>file://</code> 不可）。GitHub Pages 等に置いて開いてください。<br>
-  ※ iOSの仕様上、保存はワンタップの承認が必要です。「保存」を押すと共有シートが開くので「画像を保存」を選ぶと全部まとめて入ります。
+<p class="foot">
+  カメラは <code>https://</code> のページでのみ起動します（iPhoneの <code>file://</code> では不可）。GitHub Pages などに置いて開いてください。<br>
+  iOSでは保存に承認が必要です。「写真に保存」を押すと共有シートが開くので、「画像を保存」を選ぶとまとめて入ります。
 </p>
 
 <div class="viewer" id="viewer">
-  <button class="close" id="viewerClose">&times;</button>
-  <img id="viewerImg" alt="">
+  <button class="close" id="viewerClose" aria-label="閉じる">&times;</button>
+  <img id="viewerImg" alt="撮影した写真">
   <p>1枚だけ保存したいときは、この画像を長押し →「写真に追加」</p>
 </div>
 
 <script>
+"use strict";
 const $ = id => document.getElementById(id);
-const video=$('video'), stage=$('stage'), flash=$('flash'), mark=$('mark');
-const fill=$('fill'), metVal=$('metVal'), metLab=$('metLab'), threshMark=$('threshMark');
-const statusEl=$('status'), statusText=$('statusText');
+const finder=$('finder'), video=$('video'), flash=$('flash'), detect=$('detect');
+const chip=$('chip'), chipText=$('chipText'), recText=$('recText');
+const fill=$('fill'), bar=$('bar'), metVal=$('metVal'), tick=$('tick');
+const camSelect=$('camSelect'), notice=$('notice');
+const startBtn=$('startBtn'), stopBtn=$('stopBtn'), saveBtn=$('saveBtn');
+const shutterBtn=$('shutterBtn'), lastShot=$('lastShot');
 
-let stream=null, running=false, mode='capture';
+let lastCaptureTime=null;           // ms timestamp of the most recent saved photo
+
+let running=false, mode='capture';
+let stream=null, currentDeviceId=null, startGen=0;
 let prev=null, lastTrigger=0, rafId=null, lastProc=0;
-let shots=[]; // {blob, url}
+let shots=[];                       // {blob, url} | null  (null = removed; index kept stable)
 
-// detection canvas (small)
-const SW=64, SH=48;
+/* detection runs on a tiny offscreen canvas */
+const SW=64, SH=48, PROC_MS=80;
 const dCanvas=document.createElement('canvas'); dCanvas.width=SW; dCanvas.height=SH;
 const dCtx=dCanvas.getContext('2d',{willReadFrequently:true});
 
-// settings
-let areaThresh=0.05;   // ratio 0..1
-let pixThresh=25;      // per-pixel avg channel diff
-let coolMs=800;
+/* tunables */
+let areaThresh=0.05, pixThresh=25, coolMs=800;
+const SCALE_MAX=0.40;              // meter spans 0..40%, matching the area slider's max
 
-/* ---------- sliders ---------- */
+/* ── faders ──────────────────────────── */
 $('area').addEventListener('input',e=>{
-  areaThresh=(+e.target.value)/1000;           // 1..400 -> 0.001..0.4
+  areaThresh=(+e.target.value)/1000;
   $('areaV').textContent=(areaThresh*100).toFixed(1)+'%';
-  positionThresh();
+  positionTick();
 });
 $('pix').addEventListener('input',e=>{ pixThresh=+e.target.value; $('pixV').textContent=pixThresh; });
 $('cool').addEventListener('input',e=>{ coolMs=+e.target.value; $('coolV').textContent=(coolMs/1000).toFixed(1)+'s'; });
+function positionTick(){ tick.style.left=Math.min(100, areaThresh/SCALE_MAX*100).toFixed(1)+'%'; }
+positionTick();
 
-// meter is scaled so the threshold sits at 30% of the bar for readability,
-// and the fill maps the same scale (full bar = ~3.3x threshold, min cap 12%).
-function meterScaleMax(){ return Math.max(0.12, areaThresh*3.33); }
-function positionThresh(){
-  const p = areaThresh/meterScaleMax()*100;
-  threshMark.style.left = Math.min(100,p).toFixed(1)+'%';
-}
-positionThresh();
-
-/* ---------- mode toggle ---------- */
-const knob=$('knob'), tBtns=document.querySelectorAll('#toggle button');
+/* ── mode segmented control ──────────── */
+const knob=$('knob'), segBtns=document.querySelectorAll('#seg button');
 function layoutKnob(){
-  const active=document.querySelector('#toggle button.on');
-  knob.style.width=active.offsetWidth+'px';
-  knob.style.transform=`translateX(${active.offsetLeft-3}px)`;
+  const on=document.querySelector('#seg button.on');
+  knob.style.width=on.offsetWidth+'px';
+  knob.style.transform=`translateX(${on.offsetLeft-3}px)`;
 }
-tBtns.forEach(b=>b.addEventListener('click',()=>{
-  tBtns.forEach(x=>x.classList.remove('on'));
+segBtns.forEach(b=>b.addEventListener('click',()=>{
+  segBtns.forEach(x=>x.classList.remove('on'));
   b.classList.add('on'); layoutKnob();
   mode=b.dataset.mode;
-  $('modeHint').textContent = mode==='capture' ? '写真を撮影します' : '撮らずに反応だけ表示します';
+  finder.classList.toggle('modeCal', mode==='calibrate');
+  recText.textContent = mode==='capture' ? '監視中' : '調整中';
+  $('modeHint').textContent = mode==='capture' ? '動きを検知したら写真を撮ります' : '撮らずに反応だけ表示します';
 }));
 window.addEventListener('load',layoutKnob);
 window.addEventListener('resize',layoutKnob);
 
-/* ---------- camera ---------- */
+/* ── notice helper ───────────────────── */
+let noticeTimer=null;
+function showNotice(msg){
+  notice.textContent=msg; notice.classList.add('show');
+  clearTimeout(noticeTimer); noticeTimer=setTimeout(()=>notice.classList.remove('show'),6000);
+}
+function clearNotice(){ notice.classList.remove('show'); }
+
+/* ── camera list ─────────────────────── */
 async function listCameras(selectId){
   try{
     const devices=await navigator.mediaDevices.enumerateDevices();
     const cams=devices.filter(d=>d.kind==='videoinput');
-    const sel=$('camSelect'); sel.innerHTML='';
+    camSelect.innerHTML='';
     cams.forEach((c,i)=>{
       const o=document.createElement('option');
-      o.value=c.deviceId;
-      o.textContent=c.label || `カメラ ${i+1}`;
-      sel.appendChild(o);
+      o.value=c.deviceId; o.textContent=c.label || `カメラ ${i+1}`;
+      camSelect.appendChild(o);
     });
-    if(selectId) sel.value=selectId;
-  }catch(e){ /* ignore */ }
+    if(selectId) camSelect.value=selectId;
+  }catch(_){ /* enumerate can fail before permission; ignore */ }
 }
 
+/* ── start / stop ────────────────────── */
 async function start(deviceId){
   if(!navigator.mediaDevices?.getUserMedia){
-    alert('このブラウザ/接続ではカメラを使えません（https が必要です）。'); return;
+    showNotice('このブラウザ/接続ではカメラを使えません（https が必要です）。'); return;
   }
-  stop(true);
+  clearNotice();
+  const myGen=++startGen;           // re-entrancy guard: invalidate any in-flight start
+  const prevDeviceId=currentDeviceId;
+  const wasRunning=running;
+  stopStream();                     // release current stream/loop only (keep UI until we know the result)
+
   const constraints = deviceId
     ? { video:{ deviceId:{exact:deviceId} }, audio:false }
     : { video:{ facingMode:{ideal:'environment'} }, audio:false };
+
+  let newStream;
   try{
-    stream=await navigator.mediaDevices.getUserMedia(constraints);
+    newStream=await navigator.mediaDevices.getUserMedia(constraints);
   }catch(e){
-    alert('カメラを起動できませんでした: '+e.message); return;
+    if(myGen!==startGen){ return; }                 // superseded by a newer start
+    // failure recovery: if we were switching cameras, fall back; otherwise stop cleanly
+    if(wasRunning && prevDeviceId && prevDeviceId!==deviceId){
+      showNotice('このカメラに切り替えできませんでした。元のカメラに戻します。');
+      return start(prevDeviceId);
+    }
+    showNotice('カメラを起動できませんでした：'+(e?.message||e));
+    setStopped();
+    return;
   }
+
+  if(myGen!==startGen){             // a newer start won the race — discard this stream
+    newStream.getTracks().forEach(t=>t.stop());
+    return;
+  }
+
+  stream=newStream;
   video.srcObject=stream;
-  await video.play().catch(()=>{});
-  await listCameras(stream.getVideoTracks()[0]?.getSettings().deviceId);
+  try{ await video.play(); }catch(_){}
+  if(myGen!==startGen){ stopStream(); return; }      // check again after the await
+
+  currentDeviceId = stream.getVideoTracks()[0]?.getSettings().deviceId || deviceId || null;
+  await listCameras(currentDeviceId);
+  if(myGen!==startGen){ stopStream(); return; }
+
   running=true; prev=null; lastProc=0;
-  stage.classList.remove('idle');
-  statusEl.classList.add('live'); statusText.textContent='ARMED';
-  $('startBtn').disabled=true; $('stopBtn').disabled=false;
+  finder.classList.remove('idle'); finder.classList.add('live');
+  chip.classList.remove('fire'); chip.classList.add('armed'); chipText.textContent='監視中';
+  startBtn.disabled=true; stopBtn.disabled=false;
   loop();
 }
 
-function stop(silent){
+/* stop only the media + loop, no UI change */
+function stopStream(){
   running=false;
-  if(rafId) cancelAnimationFrame(rafId);
+  if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
   if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
-  if(!silent){
-    stage.classList.add('idle');
-    statusEl.classList.remove('live'); statusText.textContent='STOPPED';
-    $('startBtn').disabled=false; $('stopBtn').disabled=true;
-    fill.style.width='0%'; metVal.textContent='0.0';
-  }
 }
 
-$('startBtn').addEventListener('click',()=>start());
-$('stopBtn').addEventListener('click',()=>stop());
-$('camSelect').addEventListener('change',e=>{ if(running) start(e.target.value); });
+/* full stop: media + UI back to the resting state */
+function setStopped(){
+  stopStream();
+  currentDeviceId=null;
+  video.srcObject=null;             // clear the frozen last frame
+  finder.classList.remove('live'); finder.classList.add('idle');
+  chip.classList.remove('armed','fire'); chipText.textContent='待機中';
+  startBtn.disabled=false; stopBtn.disabled=true;
+  fill.style.width='0%'; bar.classList.remove('over'); metVal.textContent='0.0'; metVal.style.color='var(--text)';
+}
 
-/* ---------- detection loop (throttled ~12fps) ---------- */
+startBtn.addEventListener('click',()=>start());
+stopBtn.addEventListener('click',()=>{ ++startGen; setStopped(); });
+camSelect.addEventListener('change',e=>{ if(running) start(e.target.value); });
+
+/* ── detection loop (~12.5 fps) ──────── */
 function loop(){
   if(!running) return;
   rafId=requestAnimationFrame(loop);
+  if(video.readyState<2) return;            // not ready: skip without spending a slot
   const now=performance.now();
-  if(now-lastProc < 80) return;     // ~12.5 fps
+  if(now-lastProc < PROC_MS) return;
   lastProc=now;
-  if(video.readyState<2) return;
 
   dCtx.drawImage(video,0,0,SW,SH);
   const curr=dCtx.getImageData(0,0,SW,SH).data;
@@ -350,32 +520,28 @@ function loop(){
     }
     const ratio=changed/total;
     updateMeter(ratio);
-
-    if(ratio>areaThresh && now-lastTrigger>coolMs){
-      lastTrigger=now;
-      trigger();
-    }
+    if(ratio>areaThresh && now-lastTrigger>coolMs){ lastTrigger=now; trigger(); }
   }
   prev=curr;
 }
 
 function updateMeter(ratio){
-  const pct=Math.min(100, ratio/meterScaleMax()*100);
-  fill.style.width=pct.toFixed(1)+'%';
+  fill.style.width=Math.min(100, ratio/SCALE_MAX*100).toFixed(1)+'%';
   const over=ratio>areaThresh;
-  fill.classList.toggle('over',over);
+  bar.classList.toggle('over',over);
   metVal.textContent=(ratio*100).toFixed(1);
   metVal.style.color = over ? 'var(--hot)' : 'var(--text)';
 }
 
-/* ---------- trigger ---------- */
+/* ── trigger ─────────────────────────── */
 function trigger(){
+  chip.classList.add('fire'); chipText.textContent='検知';
+  setTimeout(()=>{ if(running){ chip.classList.remove('fire'); chip.classList.add('armed'); chipText.textContent=mode==='capture'?'監視中':'調整中'; } },400);
   if(mode==='capture'){
     flash.classList.remove('fire'); void flash.offsetWidth; flash.classList.add('fire');
     capture();
   }else{
-    mark.classList.remove('fire'); void mark.offsetWidth; mark.classList.add('fire');
-    setTimeout(()=>mark.classList.remove('fire'),320);
+    detect.classList.remove('fire'); void detect.offsetWidth; detect.classList.add('fire');
   }
 }
 
@@ -388,58 +554,92 @@ function capture(){
     if(!blob) return;
     const url=URL.createObjectURL(blob);
     shots.push({blob,url});
+    lastCaptureTime=Date.now();
+    renderLastShot();
     addThumb(shots.length-1);
-    refreshSave();
+    refreshGallery();
   },'image/jpeg',0.92);
 }
 
-/* ---------- gallery ---------- */
+/* ── gallery ─────────────────────────── */
 const strip=$('strip');
 function addThumb(i){
-  if(strip.querySelector('.empty')) strip.innerHTML='';
+  const empty=strip.querySelector('.empty'); if(empty) empty.remove();
   const t=document.createElement('div'); t.className='thumb';
-  const img=document.createElement('img'); img.src=shots[i].url;
-  img.addEventListener('click',()=>openViewer(shots[i].url));
-  const x=document.createElement('button'); x.className='x'; x.textContent='×';
+  const img=document.createElement('img'); img.src=shots[i].url; img.alt='撮影した写真';
+  img.addEventListener('click',()=>{ if(shots[i]) openViewer(shots[i].url); });
+  const x=document.createElement('button'); x.className='x'; x.textContent='×'; x.setAttribute('aria-label','削除');
   x.addEventListener('click',ev=>{ ev.stopPropagation(); removeShot(i,t); });
-  t.appendChild(img); t.appendChild(x); strip.appendChild(t);
+  const idx=document.createElement('span'); idx.className='idx'; idx.textContent=String(liveShots().length+1).padStart(2,'0');
+  t.append(img,x,idx); strip.appendChild(t);
   strip.scrollLeft=strip.scrollWidth;
 }
 function removeShot(i,el){
   if(shots[i]){ URL.revokeObjectURL(shots[i].url); shots[i]=null; }
-  el.remove(); refreshSave();
-  if(shots.every(s=>!s)) strip.innerHTML='<div class="empty">まだありません</div>';
+  el.remove(); refreshGallery();
+  if(shots.every(s=>!s)) showEmpty();
 }
+function showEmpty(){ strip.innerHTML='<div class="empty">まだ写真はありません。監視を始めると、ここに自動撮影した写真が並びます。</div>'; }
 function liveShots(){ return shots.filter(Boolean); }
-function refreshSave(){
+function refreshGallery(){
   const n=liveShots().length;
-  $('saveBtn').disabled = n===0;
-  $('saveN').textContent = n? `(${n})` : '';
+  saveBtn.disabled = n===0; $('saveN').textContent = n ? `(${n})` : '';
+  $('clearBtn').disabled = n===0;
+  if(n===0){ lastCaptureTime=null; renderLastShot(); }
 }
 $('clearBtn').addEventListener('click',()=>{
   shots.forEach(s=>s&&URL.revokeObjectURL(s.url)); shots=[];
-  strip.innerHTML='<div class="empty">まだありません</div>'; refreshSave();
+  showEmpty(); refreshGallery();
 });
 
-/* ---------- viewer ---------- */
+/* ── viewer ──────────────────────────── */
 function openViewer(url){ $('viewerImg').src=url; $('viewer').classList.add('open'); }
 $('viewerClose').addEventListener('click',()=>$('viewer').classList.remove('open'));
 $('viewer').addEventListener('click',e=>{ if(e.target.id==='viewer') $('viewer').classList.remove('open'); });
+window.addEventListener('keydown',e=>{ if(e.key==='Escape') $('viewer').classList.remove('open'); });
 
-/* ---------- save (Web Share, batched) ---------- */
-$('saveBtn').addEventListener('click',async()=>{
-  const list=liveShots();
-  if(!list.length) return;
+/* ── save (Web Share, batched) ───────── */
+saveBtn.addEventListener('click',async()=>{
+  const list=liveShots(); if(!list.length) return;
   const files=list.map((s,i)=>new File([s.blob],`shot_${String(i+1).padStart(2,'0')}.jpg`,{type:'image/jpeg'}));
   if(navigator.canShare && navigator.canShare({files})){
-    try{ await navigator.share({files}); }
-    catch(e){ /* user cancelled */ }
+    try{ await navigator.share({files}); }catch(_){ /* cancelled */ }
   }else{
-    alert('この環境では一括保存に対応していません。各写真をタップ→長押しで保存してください。');
+    showNotice('この環境では一括保存に対応していません。各写真をタップ→長押しで保存してください。');
   }
 });
 
-refreshSave();
+/* free object URLs if the page is closed */
+window.addEventListener('pagehide',()=>{ shots.forEach(s=>s&&URL.revokeObjectURL(s.url)); });
+
+/* ── manual shutter ──────────────────── */
+shutterBtn.addEventListener('click',()=>{
+  if(!running) return;                       // only meaningful with a live feed
+  shutterBtn.classList.remove('snap'); void shutterBtn.offsetWidth; shutterBtn.classList.add('snap');
+  flash.classList.remove('fire'); void flash.offsetWidth; flash.classList.add('fire');
+  lastTrigger=performance.now();             // count manual shots toward the burst interval too
+  capture();                                 // captures regardless of mode (撮影 / 調整)
+});
+
+/* ── "前回の撮影" elapsed time ─────────── */
+function fmtAgo(ms){
+  const s=Math.floor(ms/1000);
+  if(s<1)  return 'たった今';
+  if(s<60) return s+'秒前';
+  const m=Math.floor(s/60), rs=s%60;
+  if(m<60) return rs ? `${m}分${rs}秒前` : `${m}分前`;
+  const h=Math.floor(m/60); return `${h}時間${m%60}分前`;
+}
+function renderLastShot(){
+  if(lastCaptureTime==null){ lastShot.textContent='—'; lastShot.classList.add('stale'); return; }
+  const ago=Date.now()-lastCaptureTime;
+  lastShot.textContent=fmtAgo(ago);
+  lastShot.classList.toggle('stale', ago>=5000);   // fades from accent once it's "old"
+}
+setInterval(renderLastShot,1000);
+renderLastShot();
+
+refreshGallery();
 </script>
 </body>
 </html>
