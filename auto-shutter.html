@@ -382,6 +382,14 @@
         <div class="head"><div class="name">縦幅</div><div class="v" id="cropHV">70%</div></div>
         <input type="range" id="cropH" min="20" max="100" step="1" value="70" disabled>
       </div>
+      <div class="fader" style="margin-top:14px">
+        <div class="head"><div class="name">左右の位置</div><div class="v" id="posXV">中央</div></div>
+        <input type="range" id="posX" min="0" max="100" step="1" value="50" disabled>
+      </div>
+      <div class="fader" style="margin-top:14px">
+        <div class="head"><div class="name">上下の位置</div><div class="v" id="posYV">中央</div></div>
+        <input type="range" id="posY" min="0" max="100" step="1" value="50" disabled>
+      </div>
       <div class="cropSize" id="cropSize">撮影サイズ：開始すると表示</div>
     </div>
   </div>
@@ -485,6 +493,7 @@ let pendingShot=false;             // a delayed capture is already queued
 let delayTimer=null;               // id of the pending delayed-capture timer (so we can cancel it)
 let captureGen=0;                  // session token: invalidates in-flight captures on stop/switch/clear
 let cropOn=false, cropW=0.70, cropH=0.70;  // detection/capture window as a fraction of the finder
+let posX=0.5, posY=0.5;            // window position: 0=flush left/top, 0.5=centered, 1=flush right/bottom
 const SCALE_MAX=0.40;              // meter spans 0..40%, matching the area slider's max
 
 /* ── faders ──────────────────────────── */
@@ -511,19 +520,21 @@ const cropEl=$('crop');
 function applyCropStyle(){
   cropEl.style.width=(cropW*100).toFixed(1)+'%';
   cropEl.style.height=(cropH*100).toFixed(1)+'%';
-  cropEl.style.left=((1-cropW)/2*100).toFixed(1)+'%';
-  cropEl.style.top=((1-cropH)/2*100).toFixed(1)+'%';
+  cropEl.style.left=(posX*(1-cropW)*100).toFixed(1)+'%';
+  cropEl.style.top=(posY*(1-cropH)*100).toFixed(1)+'%';
   finder.classList.toggle('cropping', cropOn);
 }
-// map the (centered) crop window to source-video pixels, accounting for object-fit:cover
+// map the (positioned) crop window to source-video pixels, accounting for object-fit:cover
 function srcRect(){
   const Vw=video.videoWidth, Vh=video.videoHeight;
   if(!cropOn || !Vw || !Vh) return {sx:0,sy:0,sw:Vw,sh:Vh};
   const Fw=finder.clientWidth, Fh=finder.clientHeight;
   const scale=Math.max(Fw/Vw, Fh/Vh);               // cover scale
-  let sw=(cropW*Fw)/scale, sh=(cropH*Fh)/scale;      // window size in source px
-  let sx=(Vw-sw)/2, sy=(Vh-sh)/2;                    // centered
-  sx=Math.max(0,sx); sy=Math.max(0,sy);
+  const offX=(Vw*scale-Fw)/2, offY=(Vh*scale-Fh)/2; // displayed-video overflow per side
+  const fLeft=posX*(1-cropW)*Fw, fTop=posY*(1-cropH)*Fh;  // window position in finder px
+  let sx=(fLeft+offX)/scale, sy=(fTop+offY)/scale;  // → source px
+  let sw=(cropW*Fw)/scale, sh=(cropH*Fh)/scale;
+  sx=Math.max(0,Math.min(sx,Vw)); sy=Math.max(0,Math.min(sy,Vh));
   sw=Math.max(1,Math.min(sw,Vw-sx)); sh=Math.max(1,Math.min(sh,Vh-sy));
   return {sx,sy,sw,sh};
 }
@@ -541,6 +552,7 @@ function markPreset(){
 $('cropToggle').addEventListener('change',e=>{
   cropOn=e.target.checked;
   $('cropW').disabled=!cropOn; $('cropH').disabled=!cropOn;
+  $('posX').disabled=!cropOn; $('posY').disabled=!cropOn;
   $('cropRow').dataset.off = cropOn ? 'false' : 'true';
   $('cropHint').textContent = cropOn ? 'フレーム内だけを検知・撮影します' : '映像全体を使います';
   applyCropStyle(); prev=null; updateCropSize();
@@ -552,6 +564,15 @@ $('cropW').addEventListener('input',e=>{
 $('cropH').addEventListener('input',e=>{
   cropH=(+e.target.value)/100; $('cropHV').textContent=e.target.value+'%';
   applyCropStyle(); markPreset(); prev=null; updateCropSize();
+});
+function posLabel(v,lo,hi){ return v===50 ? '中央' : (v<50?lo:hi)+' '+Math.round(Math.abs(v-50)*2)+'%'; }
+$('posX').addEventListener('input',e=>{
+  posX=(+e.target.value)/100; $('posXV').textContent=posLabel(+e.target.value,'左','右');
+  applyCropStyle(); prev=null; updateCropSize();
+});
+$('posY').addEventListener('input',e=>{
+  posY=(+e.target.value)/100; $('posYV').textContent=posLabel(+e.target.value,'上','下');
+  applyCropStyle(); prev=null; updateCropSize();
 });
 document.querySelectorAll('#cropPresets .chip-btn').forEach(b=>b.addEventListener('click',()=>{
   cropW=+b.dataset.w; cropH=+b.dataset.h;
